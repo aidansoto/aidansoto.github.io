@@ -54,7 +54,7 @@ export class CampusEngine {
     this.sim = new CampusSimulation(doc, bus);
     this.attachEventLog();
 
-    this.renderer = new CampusRenderer({
+    const renderer = new CampusRenderer({
       host,
       doc,
       sim: this.sim,
@@ -63,7 +63,20 @@ export class CampusEngine {
       onHoverAgent: (id) => useCampus.getState().hoverAgent(id),
       onStats: (stats) => useCampus.getState().setStats(stats),
     });
-    await this.renderer.init();
+
+    // If the map cannot start, the rest of the application still can. Report
+    // the reason and carry on with the roster, log, settings and owner console
+    // rather than leaving the owner staring at a boot screen forever.
+    try {
+      await renderer.init();
+      this.renderer = renderer;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      state.setLoadError(message);
+      state.pushLog({ severity: 'error', text: `Campus map unavailable — ${message}` });
+      renderer.destroy();
+      this.renderer = null;
+    }
 
     sound.setEnabled(doc.settings.soundEnabled);
     sound.setVolume(doc.settings.soundVolume);

@@ -33,17 +33,42 @@ bundle layout, `hdiutil` and `codesign` are macOS-only, so `npm run tauri build`
 has to run on the Mac. See the README for the output paths and the Gatekeeper
 step an unsigned build requires.
 
-What *was* verified on the Linux host, after installing the GTK/WebKit system
-libraries Tauri needs there:
+What *was* verified, by installing the GTK/WebKit libraries Tauri needs on
+Linux and then running the packaged desktop application:
 
-- The Rust backend compiles clean in both debug and release.
-- `tauri.conf.json` validates, the generated icon set resolves (including
-  `icon.icns` for macOS), and the frontend `dist` wiring is correct.
-- The SQLite persistence layer compiles and its tests pass.
+- `npm run tauri build` completes end-to-end and emits bundles.
+- The **packaged desktop app launches and the campus renders** — not the
+  browser dev server, the real bundled binary with the production CSP.
+- Persistence runs on **SQLite**, not the localStorage fallback: the activity
+  log reports "Campus loaded from sqlite", and edits written to
+  `campus.sqlite` came back correctly after a full restart of the app.
+- Tasks flow through the packaged app (received → assigned → review) and
+  agents move between buildings.
+- The Rust backend compiles clean in debug and release; the SQLite layer's
+  own tests pass.
 
-None of that touches macOS-specific packaging, so budget a little time for
+Running the packaged app is what caught the CSP/PixiJS `unsafe-eval` failure
+described below — a bug that could not reproduce under `npm run dev` and would
+have shipped in the `.app`. It is worth repeating that exercise on the Mac
+before trusting a release build.
+
+None of the above touches macOS-specific packaging, so budget a little time for
 toolchain setup on the first `tauri build` — chiefly installing Rust via rustup
 and the Xcode Command Line Tools.
+
+### Fixed during verification
+
+- **PixiJS could not start under the production CSP.** Pixi v8 compiles shader
+  and uniform-sync code with `new Function()`, which `script-src 'self'`
+  blocks. The app now imports `pixi.js/unsafe-eval` at entry, which swaps in
+  non-eval polyfills so the strict CSP stays exactly as it is. The Vite dev
+  server serves no CSP, so this was invisible outside the packaged build.
+- **A failed renderer hung the app forever.** The boot screen sat at
+  "Initialising Campus" with no diagnostic. Renderer failure is now caught and
+  reported on screen, and the roster, activity log, settings and owner console
+  keep working without the map.
+- **macOS bundling would have failed.** The bundle config referenced only
+  `icon.png`; macOS requires `icon.icns`, which did not exist.
 
 **Sound.** The synthesised sound design is implemented and wired to events, but
 audio cannot be captured in this environment. It is off by default; enable it in

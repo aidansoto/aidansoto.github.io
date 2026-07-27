@@ -110,14 +110,23 @@ export class CampusRenderer {
     const settings = this.doc.settings;
     this.theme = resolveTheme(this.doc.themeId, settings.timeOfDay);
 
-    await this.app.init({
-      background: this.theme.skyBottom,
-      antialias: settings.performanceMode !== 'efficient',
-      resolution: this.resolutionFor(settings),
-      autoDensity: true,
-      powerPreference: 'high-performance',
-      resizeTo: this.host,
-    });
+    // A GPU context is the one hard dependency the campus has. If it cannot be
+    // acquired the failure must be reported, not swallowed — an unexplained
+    // boot screen that never resolves is the worst possible outcome here.
+    try {
+      await this.app.init({
+        background: this.theme.skyBottom,
+        antialias: settings.performanceMode !== 'efficient',
+        resolution: this.resolutionFor(settings),
+        autoDensity: true,
+        powerPreference: 'high-performance',
+        preference: 'webgl',
+        resizeTo: this.host,
+      });
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(`The graphics renderer could not start. ${detail}`, { cause });
+    }
     if (this.destroyed) {
       this.app.destroy(true);
       return;

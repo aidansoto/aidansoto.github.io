@@ -859,6 +859,43 @@ input[type='range']::-webkit-slider-thumb {
   color: var(--text-faint);
 }
 
+.boot-error {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: 560px;
+  padding: 14px 18px;
+  border: 1px solid rgba(196, 69, 59, 0.55);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(40, 14, 12, 0.94), rgba(8, 11, 17, 0.96));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.boot-error strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #ffb3ab;
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.boot-error p {
+  margin: 0 0 6px;
+  color: var(--text-dim);
+}
+
+.boot-error .boot-error-hint {
+  margin-bottom: 0;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
 /* ---------------------------------------------------------------- */
 /* Responsive                                                        */
 /* ---------------------------------------------------------------- */

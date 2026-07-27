@@ -13,6 +13,7 @@ import './styles.css';
 export function App(): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const ready = useCampus((s) => s.ready);
+  const loadError = useCampus((s) => s.loadError);
   const openPanel = useCampus((s) => s.openPanel);
   const selectedAgentId = useCampus((s) => s.selectedAgentId);
   const selectedBuildingId = useCampus((s) => s.selectedBuildingId);
@@ -81,6 +82,17 @@ export function App(): JSX.Element {
         <div className="boot-mark" />
         <div className="boot-text">Initialising Campus</div>
       </div>
+
+      {loadError && (
+        <div className="boot-error" role="alert">
+          <strong>The campus map could not start.</strong>
+          <p>{loadError}</p>
+          <p className="boot-error-hint">
+            The roster, activity log, settings and owner console still work. Quitting and
+            reopening the app resolves most graphics-context failures.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
