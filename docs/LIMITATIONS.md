@@ -28,13 +28,22 @@ cached textures, culling, LOD tiers, 5 Hz React mirroring) but the 60 fps claim
 is unmeasured. **Measure this first on your machine**, and use the FPS readout
 in the top bar and the Owner Suite's renderer panel.
 
-**The macOS desktop build.** `cargo check` fails here because Tauri's Linux
-backend needs GTK and WebKit system libraries that aren't installed. macOS uses
-WKWebView and doesn't need them, so this is an environment gap rather than a
-code problem — but `npm run tauri:dev` and `npm run tauri:build` have not been
-run end-to-end. The SQLite persistence layer *was* compiled and tested
-standalone. Expect to spend a little time on first launch resolving Tauri
-toolchain setup.
+**The macOS `.app` and `.dmg`.** Tauri cannot cross-compile to macOS: the
+bundle layout, `hdiutil` and `codesign` are macOS-only, so `npm run tauri build`
+has to run on the Mac. See the README for the output paths and the Gatekeeper
+step an unsigned build requires.
+
+What *was* verified on the Linux host, after installing the GTK/WebKit system
+libraries Tauri needs there:
+
+- The Rust backend compiles clean in both debug and release.
+- `tauri.conf.json` validates, the generated icon set resolves (including
+  `icon.icns` for macOS), and the frontend `dist` wiring is correct.
+- The SQLite persistence layer compiles and its tests pass.
+
+None of that touches macOS-specific packaging, so budget a little time for
+toolchain setup on the first `tauri build` — chiefly installing Rust via rustup
+and the Xcode Command Line Tools.
 
 **Sound.** The synthesised sound design is implemented and wired to events, but
 audio cannot be captured in this environment. It is off by default; enable it in

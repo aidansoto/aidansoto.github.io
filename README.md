@@ -46,9 +46,68 @@ survives a reload. Everything visual behaves identically to the desktop app.
 **macOS desktop app:**
 
 ```bash
-npm run tauri:dev    # launches the Tauri shell with SQLite persistence
-npm run tauri:build  # produces a .app and .dmg in src-tauri/target/release/bundle
+npm run tauri dev    # launches the Tauri shell with SQLite persistence
 ```
+
+---
+
+## Building the macOS application
+
+Run this **on the Mac** — Tauri cannot cross-compile a `.app` or `.dmg` from
+Linux or Windows, because the bundle format, `hdiutil` and `codesign` are
+macOS-only.
+
+```bash
+npm install
+npm run tauri build
+```
+
+The first build compiles the whole Rust dependency tree and takes several
+minutes. Later builds are incremental and much faster.
+
+### Where the files land
+
+Both paths are relative to the project root.
+
+| Artifact | Path |
+| --- | --- |
+| Application | `src-tauri/target/release/bundle/macos/Obsidian Campus.app` |
+| Installer | `src-tauri/target/release/bundle/dmg/Obsidian Campus_0.1.0_aarch64.dmg` |
+
+The DMG filename ends in `_aarch64` on Apple Silicon and `_x64` on Intel. To
+ship one file that runs on both:
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+npm run tauri build -- --target universal-apple-darwin
+```
+
+That writes to `src-tauri/target/universal-apple-darwin/release/bundle/`
+instead.
+
+### Installing
+
+1. Open the `.dmg`.
+2. Drag **Obsidian Campus** into **Applications**.
+3. Open Finder → Applications.
+4. **Right-click the app and choose Open**, then confirm.
+
+Step 4 matters. This build is not code-signed, so double-clicking it the first
+time gets you *"Obsidian Campus cannot be opened because the developer cannot
+be verified."* Right-click → Open registers the exception once; after that it
+launches normally from the Dock like any other app. If macOS refuses outright,
+clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Obsidian Campus.app"
+```
+
+To remove the warning permanently you need an Apple Developer Program
+membership ($99/yr), then set `signingIdentity` under `bundle.macOS` in
+`src-tauri/tauri.conf.json` and notarise the build.
+
+Once installed it behaves like any desktop app — pin it to the Dock and leave
+the campus running on a second monitor.
 
 ## Verifying
 
