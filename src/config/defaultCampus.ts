@@ -422,7 +422,10 @@ export function defaultSettings(): CampusSettings {
   return {
     timeOfDay: 'night',
     weather: 'clear',
+    // Free local simulation. No provider is ever activated automatically.
+    aiProvider: 'offline',
     animationSpeed: 1,
+    idleMovement: true,
     showAgentLabels: true,
     showStatusTags: true,
     showActivityTrails: false,

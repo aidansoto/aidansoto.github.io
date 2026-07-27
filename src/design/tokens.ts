@@ -9,6 +9,9 @@
  * structures, white architectural light, cool blue used *sparingly*.
  */
 
+/** Application version, mirrored from package.json / tauri.conf.json. */
+export const APP_VERSION = '0.1.0';
+
 /** Hex numbers for PixiJS. */
 export const palette = {
   /* Structure -------------------------------------------------------- */

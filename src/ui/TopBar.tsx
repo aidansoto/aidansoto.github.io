@@ -49,6 +49,17 @@ export function TopBar(): JSX.Element {
         {mode === 'running' ? 'Operational' : mode === 'paused' ? 'Paused' : 'Emergency Stop'}
       </StatusChip>
 
+      {(doc?.settings.aiProvider ?? 'offline') === 'offline' && (
+        <span
+          title={
+            'The campus is operating locally. No paid AI provider is connected. ' +
+            'All agents are simulated. No API charges are being created.'
+          }
+        >
+          <StatusChip color={css.blueGlow}>Offline Simulation · $0</StatusChip>
+        </span>
+      )}
+
       {approvals.length > 0 && (
         <StatusChip color={css.gold}>
           {approvals.length} Approval{approvals.length === 1 ? '' : 's'}

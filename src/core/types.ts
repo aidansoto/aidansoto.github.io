@@ -250,11 +250,29 @@ export type SystemMode = 'running' | 'paused' | 'stopped';
 export type WeatherKind = 'clear' | 'rain' | 'fog' | 'snow';
 export type TimeOfDay = 'night' | 'day' | 'auto';
 
+/**
+ * Which agent-intelligence backend the campus is configured to prefer.
+ *
+ * Only 'offline' — the free, local, simulated campus — is wired in this
+ * phase. The other values are stored *preferences* for later phases: choosing
+ * one never activates a service, never requests an API key, and never creates
+ * billing of any kind. When real providers are connected, keys must live in
+ * the macOS Keychain (or equivalent secure store), never in this document.
+ */
+export type AiProvider = 'offline' | 'local' | 'ollama' | 'custom';
+
 export interface CampusSettings {
   timeOfDay: TimeOfDay;
   weather: WeatherKind;
+  /** Preferred agent backend. 'offline' (free local simulation) is the default. */
+  aiProvider: AiProvider;
   /** Global multiplier on all simulation + animation motion. */
   animationSpeed: number;
+  /**
+   * Nonessential agent movement: idle wandering between buildings. Task
+   * travel is essential and is never disabled by this flag.
+   */
+  idleMovement: boolean;
   showAgentLabels: boolean;
   showStatusTags: boolean;
   showActivityTrails: boolean;

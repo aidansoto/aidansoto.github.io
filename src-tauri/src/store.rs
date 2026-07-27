@@ -41,6 +41,24 @@ impl CampusStore {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
 
+        Self::init_schema(&conn)?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    /// Last-resort store when the on-disk database cannot be opened (missing
+    /// permissions, corrupt file, full disk). The application keeps running;
+    /// persistence is sacrificed for the session, never startup.
+    pub fn open_in_memory() -> Result<Self, StoreError> {
+        let conn = Connection::open_in_memory()?;
+        Self::init_schema(&conn)?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    fn init_schema(conn: &Connection) -> Result<(), StoreError> {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS documents (
                  key        TEXT PRIMARY KEY,
@@ -55,10 +73,7 @@ impl CampusStore {
              );
              CREATE INDEX IF NOT EXISTS revisions_key_idx ON revisions (key, id DESC);",
         )?;
-
-        Ok(Self {
-            conn: Mutex::new(conn),
-        })
+        Ok(())
     }
 
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>, StoreError> {
@@ -190,5 +205,13 @@ mod tests {
         store.clear("k").unwrap();
         assert_eq!(store.load("k").unwrap(), None);
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn in_memory_fallback_round_trips() {
+        let store = CampusStore::open_in_memory().expect("open in-memory");
+        assert_eq!(store.load("k").unwrap(), None);
+        store.save("k", "v").unwrap();
+        assert_eq!(store.load("k").unwrap().as_deref(), Some("v"));
     }
 }

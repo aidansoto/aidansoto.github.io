@@ -38,6 +38,8 @@ export type PanelId = 'roster' | 'log' | 'settings' | 'owner' | null;
 interface CampusState {
   ready: boolean;
   loadError: string | null;
+  /** True when the desktop backend fell back to in-memory storage. */
+  dbDegraded: boolean;
   repairs: string[];
   storageBackend: string;
 
@@ -61,6 +63,7 @@ interface CampusState {
 
   setReady(v: boolean): void;
   setLoadError(msg: string | null): void;
+  setDbDegraded(v: boolean): void;
   setDoc(doc: CampusDocument): void;
   setStorageBackend(b: string): void;
   setRepairs(r: string[]): void;
@@ -93,6 +96,7 @@ const LOG_LIMIT = 300;
 export const useCampus = create<CampusState>((set) => ({
   ready: false,
   loadError: null,
+  dbDegraded: false,
   repairs: [],
   storageBackend: 'unknown',
 
@@ -116,6 +120,7 @@ export const useCampus = create<CampusState>((set) => ({
 
   setReady: (v) => set({ ready: v }),
   setLoadError: (msg) => set({ loadError: msg }),
+  setDbDegraded: (v) => set({ dbDegraded: v }),
   setDoc: (doc) => set({ doc }),
   setStorageBackend: (b) => set({ storageBackend: b }),
   setRepairs: (r) => set({ repairs: r }),

@@ -13,6 +13,30 @@ that drives it.
 structures, white architectural light, cool blue used sparingly, and gold
 reserved for owner-level signals. Night is the primary grade.
 
+**Completely free to run.** Offline simulation is the default: no API keys, no
+internet connection, no cloud services, no paid dependencies, no charges of
+any kind. See [`FREE_MODE.md`](FREE_MODE.md).
+
+---
+
+## Quick Start for Mac
+
+The fastest path from download to a running campus:
+
+1. Install the tools (one time — skip any you have):
+   ```bash
+   brew install node
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   xcode-select --install
+   ```
+2. **Double-click `Launch Campus.command`** in the project folder.
+
+That's it — the script installs dependencies and opens the campus. The first
+launch compiles the desktop shell (several minutes); later launches take
+seconds. Prefer the Terminal? `npm install && npm run tauri dev` does the same
+thing. New to this? The step-by-step beginner guide is
+[`SETUP_MAC.md`](SETUP_MAC.md).
+
 ---
 
 ## Requirements
@@ -51,11 +75,11 @@ npm run tauri dev    # launches the Tauri shell with SQLite persistence
 
 ---
 
-## Building the macOS application
+## Build Permanent Mac Application
 
 Run this **on the Mac** — Tauri cannot cross-compile a `.app` or `.dmg` from
 Linux or Windows, because the bundle format, `hdiutil` and `codesign` are
-macOS-only.
+macOS-only. Easiest: double-click **`Build Mac App.command`**. By hand:
 
 ```bash
 npm install
@@ -67,15 +91,19 @@ minutes. Later builds are incremental and much faster.
 
 ### Where the files land
 
-Both paths are relative to the project root.
+Both paths are relative to the project root. The bundle root was confirmed by
+running this project's build end-to-end (on Linux it emitted
+`src-tauri/target/release/bundle/{deb,rpm,appimage}/Obsidian Campus_0.1.0_…`;
+on macOS the same layout uses `macos/` and `dmg/`):
 
 | Artifact | Path |
 | --- | --- |
-| Application | `src-tauri/target/release/bundle/macos/Obsidian Campus.app` |
-| Installer | `src-tauri/target/release/bundle/dmg/Obsidian Campus_0.1.0_aarch64.dmg` |
+| Application (`.app`) | `src-tauri/target/release/bundle/macos/Obsidian Campus.app` |
+| Installer (`.dmg`) | `src-tauri/target/release/bundle/dmg/Obsidian Campus_0.1.0_aarch64.dmg` |
 
-The DMG filename ends in `_aarch64` on Apple Silicon and `_x64` on Intel. To
-ship one file that runs on both:
+`Build Mac App.command` prints the exact paths it finds after each build and
+opens the folder in Finder. The DMG filename ends in `_aarch64` on Apple
+Silicon and `_x64` on Intel. To ship one file that runs on both:
 
 ```bash
 rustup target add aarch64-apple-darwin x86_64-apple-darwin

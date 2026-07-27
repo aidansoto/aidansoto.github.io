@@ -10,7 +10,7 @@ import type { CampusDocument, CampusSettings, SystemMode } from '@/core/types';
 import { bus } from '@/core/events';
 import { CampusSimulation } from '@/sim/simulation';
 import { CampusRenderer } from '@/render/campusRenderer';
-import { createAutosave, getStore, type CampusStore } from '@/persistence/storage';
+import { createAutosave, getStore, isTauri, type CampusStore } from '@/persistence/storage';
 import { createDefaultCampus } from '@/config/defaultCampus';
 import { sound } from '@/audio/sound';
 import { useCampus, describeEvent } from './store';
@@ -50,6 +50,25 @@ export class CampusEngine {
     state.setDoc(doc);
     state.setRepairs(repairs);
     for (const r of repairs) state.pushLog({ severity: 'warn', text: r });
+
+    // Desktop only: if the backend fell back to in-memory storage because the
+    // on-disk database could not be opened, say so plainly — the campus runs,
+    // but nothing from this session will survive a restart.
+    if (isTauri()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const health = await invoke<string>('store_status');
+        if (health === 'memory') {
+          state.setDbDegraded(true);
+          state.pushLog({
+            severity: 'error',
+            text: 'The campus database could not be opened. The campus is running from memory; changes made in this session will not survive a restart.',
+          });
+        }
+      } catch {
+        /* older backend without the command — nothing to report */
+      }
+    }
 
     this.sim = new CampusSimulation(doc, bus);
     this.attachEventLog();

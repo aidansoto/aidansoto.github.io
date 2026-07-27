@@ -447,6 +447,12 @@ export class CampusSimulation {
 
     switch (rt.state) {
       case 'idle': {
+        // Nonessential movement: idle drift can be disabled entirely. Task
+        // travel elsewhere in the machine is unaffected.
+        if (!this.doc.settings.idleMovement) {
+          rt.stateTimer = this.rng.range(4, 12);
+          break;
+        }
         // Idle agents drift: back to their desk, or a short walk to the plaza.
         const home = this.homeSpot(cfg);
         if (home && this.rng.chance(0.55)) {

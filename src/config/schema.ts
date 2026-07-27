@@ -94,7 +94,13 @@ export function normalizeSettings(v: unknown): CampusSettings {
   const timeOfDay = v.timeOfDay;
   const weather = v.weather;
   const perf = v.performanceMode;
+  const provider = v.aiProvider;
   return {
+    aiProvider:
+      provider === 'local' || provider === 'ollama' || provider === 'custom' || provider === 'offline'
+        ? provider
+        : d.aiProvider,
+    idleMovement: bool(v.idleMovement, d.idleMovement),
     timeOfDay: timeOfDay === 'day' || timeOfDay === 'auto' || timeOfDay === 'night' ? timeOfDay : d.timeOfDay,
     weather:
       weather === 'rain' || weather === 'fog' || weather === 'snow' || weather === 'clear'
