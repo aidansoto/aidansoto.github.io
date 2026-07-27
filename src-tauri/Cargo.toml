@@ -1,0 +1,26 @@
+[package]
+name = "obsidian-campus"
+version = "0.1.0"
+description = "Obsidian Campus — a premium isometric AI agent workplace"
+authors = ["Obsidian Campus"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "obsidian_campus_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "1"
+
+[features]
+# This feature is used for production builds where `devUrl` points to the
+# bundled frontend rather than the dev server.
+custom-protocol = ["tauri/custom-protocol"]
