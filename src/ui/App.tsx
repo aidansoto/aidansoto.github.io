@@ -8,6 +8,12 @@ import { ActivityLog } from './ActivityLog';
 import { SettingsPanel } from './SettingsPanel';
 import { OwnerConsole } from './OwnerConsole';
 import { CameraControls } from './CameraControls';
+import { Dashboard } from './Dashboard';
+import { NewMission } from './NewMission';
+import { Results } from './Results';
+import { KnowledgeVaultScreen } from './KnowledgeVault';
+import { WorkflowBuilder } from './WorkflowBuilder';
+import { ManagerChat } from './ManagerChat';
 import './styles.css';
 
 export function App(): JSX.Element {
@@ -17,6 +23,7 @@ export function App(): JSX.Element {
   const openPanel = useCampus((s) => s.openPanel);
   const selectedAgentId = useCampus((s) => s.selectedAgentId);
   const selectedBuildingId = useCampus((s) => s.selectedBuildingId);
+  const screen = useCampus((s) => s.screen);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -30,12 +37,31 @@ export function App(): JSX.Element {
     };
     window.addEventListener('beforeunload', onBeforeUnload);
 
+    // Escape returns to the campus from any full-screen surface, so the owner
+    // can never get stranded on a panel.
+    const onKey = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement | null;
+      const typing = target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+      if (typing) return;
+      if (e.key === 'Escape') {
+        const state = useCampus.getState();
+        if (state.newMissionOpen) state.setNewMissionOpen(false);
+        else if (state.screen !== 'campus') state.setScreen('campus');
+      }
+      if (e.key.toLowerCase() === 'm' && !e.metaKey && !e.ctrlKey) {
+        const state = useCampus.getState();
+        state.setScreen(state.screen === 'dashboard' ? 'campus' : 'dashboard');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+
     // The engine deliberately outlives this effect. React's StrictMode mounts
     // the root twice in development, and tearing down a half-initialised
     // PixiJS application between those mounts is a reliable way to lose the
     // canvas. The engine is torn down on page unload instead.
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('keydown', onKey);
       void engine.flush();
     };
   }, []);
@@ -47,6 +73,7 @@ export function App(): JSX.Element {
       <div className="canvas-host" ref={hostRef} />
       <div className="vignette" />
 
+      {screen === 'campus' && (
       <div className="hud">
         <TopBar />
 
@@ -74,9 +101,17 @@ export function App(): JSX.Element {
           {hasInspector ? <Inspector /> : <ActivityLog />}
         </div>
       </div>
+      )}
 
-      <CameraControls />
+      {screen === 'campus' && <CameraControls />}
+      {screen === 'dashboard' && <Dashboard />}
+      {screen === 'results' && <Results />}
+      {screen === 'vault' && <KnowledgeVaultScreen />}
+      {screen === 'workflows' && <WorkflowBuilder />}
+
       <OwnerConsole />
+      <NewMission />
+      <ManagerChat />
 
       <div className={`boot${ready ? ' is-done' : ''}`}>
         <div className="boot-mark" />

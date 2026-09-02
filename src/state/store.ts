@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import type { ProviderStatus } from '@/providers/types';
 import type {
   AgentConfig,
   AgentRuntime,
@@ -27,6 +28,13 @@ export interface LogEntry {
   text: string;
 }
 
+export interface ChatMessage {
+  id: number;
+  from: 'owner' | 'manager';
+  text: string;
+  at: number;
+}
+
 export interface RendererStats {
   fps: number;
   buildingsDrawn: number;
@@ -34,6 +42,9 @@ export interface RendererStats {
 }
 
 export type PanelId = 'roster' | 'log' | 'settings' | 'owner' | null;
+
+/** Full-screen surfaces that sit above the campus. */
+export type ScreenId = 'campus' | 'dashboard' | 'vault' | 'workflows' | 'results';
 
 interface CampusState {
   ready: boolean;
@@ -57,6 +68,14 @@ interface CampusState {
   hoveredAgentId: string | null;
   openPanel: PanelId;
   ownerSuiteOpen: boolean;
+
+  /* -- Mission control ---------------------------------------------- */
+  screen: ScreenId;
+  newMissionOpen: boolean;
+  /** Mission whose result is being viewed, if any. */
+  viewingResultId: string | null;
+  providerStatuses: ProviderStatus[];
+  managerChat: ChatMessage[];
 
   log: LogEntry[];
   stats: RendererStats;
@@ -85,12 +104,19 @@ interface CampusState {
   hoverAgent(id: string | null): void;
   setPanel(p: PanelId): void;
   setOwnerSuiteOpen(v: boolean): void;
+  setScreen(s: ScreenId): void;
+  setNewMissionOpen(v: boolean): void;
+  setViewingResult(id: string | null): void;
+  setProviderStatuses(list: ProviderStatus[]): void;
+  pushChat(msg: Omit<ChatMessage, 'id' | 'at'>): void;
+  clearChat(): void;
   pushLog(entry: Omit<LogEntry, 'id' | 'at'>): void;
   clearLog(): void;
   setStats(s: RendererStats): void;
 }
 
 let logSeq = 0;
+let chatSeq = 0;
 const LOG_LIMIT = 300;
 
 export const useCampus = create<CampusState>((set) => ({
@@ -114,6 +140,11 @@ export const useCampus = create<CampusState>((set) => ({
   hoveredAgentId: null,
   openPanel: 'roster',
   ownerSuiteOpen: false,
+  screen: 'campus',
+  newMissionOpen: false,
+  viewingResultId: null,
+  providerStatuses: [],
+  managerChat: [],
 
   log: [],
   stats: { fps: 0, buildingsDrawn: 0, agentsDrawn: 0 },
@@ -171,6 +202,17 @@ export const useCampus = create<CampusState>((set) => ({
   hoverAgent: (id) => set({ hoveredAgentId: id }),
   setPanel: (p) => set((s) => ({ openPanel: s.openPanel === p ? null : p })),
   setOwnerSuiteOpen: (v) => set({ ownerSuiteOpen: v }),
+  setScreen: (screen) => set({ screen }),
+  setNewMissionOpen: (newMissionOpen) => set({ newMissionOpen }),
+  setViewingResult: (viewingResultId) => set({ viewingResultId }),
+  setProviderStatuses: (providerStatuses) => set({ providerStatuses }),
+  pushChat: (msg) =>
+    set((s) => {
+      const next = [...s.managerChat, { ...msg, id: ++chatSeq, at: Date.now() }];
+      if (next.length > 200) next.splice(0, next.length - 200);
+      return { managerChat: next };
+    }),
+  clearChat: () => set({ managerChat: [] }),
 
   pushLog: (entry) =>
     set((s) => {

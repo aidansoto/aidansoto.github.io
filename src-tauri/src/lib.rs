@@ -52,6 +52,8 @@ fn list_revisions(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Local macOS notifications for mission events. No network access.
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // ~/Library/Application Support/<bundle-id>/campus.sqlite on macOS.
             // A database that cannot be opened (permissions, corruption, full

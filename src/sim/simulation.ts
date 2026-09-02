@@ -10,6 +10,7 @@
  * no renderer changes at all.
  */
 
+import type { AgentDirective, WorkKind } from '@/core/mission';
 import type {
   AgentConfig,
   AgentRuntime,
@@ -117,6 +118,17 @@ export class CampusSimulation {
 
   mode: SystemMode = 'running';
   simTime = 0;
+
+  /**
+   * Directives from the Manager engine, keyed by agent id.
+   *
+   * While any directive is present the campus is in MISSION MODE: ambient task
+   * generation stops and every directed agent's state, role and destination
+   * come from real mission data. This is what guarantees the map is never
+   * showing invented work while genuine work is running.
+   */
+  private directives = new Map<string, AgentDirective>();
+  private missionMode = false;
 
   private taskSeq = 0;
   private nextTaskIn = 2;
@@ -410,6 +422,10 @@ export class CampusSimulation {
     if (rt.state === 'offline' || rt.state === 'paused') return;
 
     this.advanceMovement(rt, cfg, dt);
+
+    // An agent under a real directive walks and animates, but its state is
+    // owned by the Manager. The ambient state machine must not overwrite it.
+    if (this.directives.has(rt.id)) return;
 
     // While walking, the state clock is suspended — an agent crossing the
     // plaza should not "finish planning" halfway there.
@@ -804,6 +820,71 @@ export class CampusSimulation {
   }
 
   /* ---------------------------------------------------------------- */
+  /* Mission integration                                               */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Adopt the Manager's directives. Agents named here are driven by real
+   * mission state; anyone else keeps behaving ambiently so the campus still
+   * feels alive around the work.
+   */
+  applyDirectives(directives: AgentDirective[]): void {
+    this.directives.clear();
+    for (const d of directives) this.directives.set(d.agentId, d);
+    this.missionMode = directives.length > 0;
+
+    for (const d of directives) {
+      const rt = this.agents.get(d.agentId);
+      const cfg = this.agentCfg.get(d.agentId);
+      if (!rt || !cfg) continue;
+
+      if (rt.state !== d.state) {
+        this.setState(rt, d.state, d.roleLabel ? `${d.roleLabel}: ${humanState(d.state)}` : undefined);
+      }
+
+      // Real progress and model, straight from the subtask. Applied after the
+      // state change, which clears the ambient tool label on its way through.
+      rt.progress = d.progress;
+      rt.tool = d.tool;
+      rt.taskId = d.subtaskId;
+
+      // Send the agent somewhere that matches the work, once per assignment.
+      const destination = this.destinationFor(cfg, d);
+      if (destination && rt.path.length === 0 && rt.locationId !== destination.room.id) {
+        this.travel(rt, destination.building, destination.room, null);
+      }
+    }
+  }
+
+  /** True while real mission work is driving the campus. */
+  get isMissionMode(): boolean {
+    return this.missionMode;
+  }
+
+  /** Where an agent should physically be for a given kind of work. */
+  private destinationFor(
+    cfg: AgentConfig,
+    directive: AgentDirective,
+  ): { building: BuildingConfig; room: RoomConfig } | null {
+    const kindToRoom: Partial<Record<WorkKind, RoomConfig['kind']>> = {
+      review: 'review',
+      planning: 'meeting',
+      analysis: 'review',
+    };
+
+    if (directive.state === 'waiting_for_approval') return this.findRoom(null, 'approval');
+    if (directive.state === 'collaborating') return this.findRoom(cfg.homeBuildingId, 'meeting');
+    if (directive.state === 'reviewing') return this.findRoom(cfg.homeBuildingId, 'review');
+
+    const wanted = directive.workKind ? kindToRoom[directive.workKind] : undefined;
+    if (wanted) {
+      const spot = this.findRoom(cfg.homeBuildingId, wanted);
+      if (spot) return spot;
+    }
+    return this.homeSpot(cfg);
+  }
+
+  /* ---------------------------------------------------------------- */
   /* Control                                                           */
   /* ---------------------------------------------------------------- */
 
@@ -860,9 +941,12 @@ export class CampusSimulation {
 
     this.simTime += dt;
 
+    // No invented work while real work is running, and none at all when the
+    // owner has turned ambient simulation off.
+    const ambientAllowed = !this.missionMode && this.doc.settings.ambientTaskSimulation;
     this.nextTaskIn -= dt;
     if (this.nextTaskIn <= 0) {
-      this.spawnTask();
+      if (ambientAllowed) this.spawnTask();
       this.nextTaskIn = this.rng.range(this.taskInterval[0], this.taskInterval[1]);
     }
 

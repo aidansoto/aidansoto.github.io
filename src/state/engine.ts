@@ -13,11 +13,15 @@ import { CampusRenderer } from '@/render/campusRenderer';
 import { createAutosave, getStore, isTauri, type CampusStore } from '@/persistence/storage';
 import { createDefaultCampus } from '@/config/defaultCampus';
 import { sound } from '@/audio/sound';
+import { ManagerEngine, type StartMissionInput } from '@/orchestration/manager';
+import { providers } from '@/providers/registry';
+import { notifier } from '@/notify/notifications';
 import { useCampus, describeEvent } from './store';
 
 export class CampusEngine {
   sim: CampusSimulation | null = null;
   renderer: CampusRenderer | null = null;
+  manager: ManagerEngine | null = null;
 
   private store: CampusStore = getStore();
   private autosave = createAutosave(getStore());
@@ -26,6 +30,8 @@ export class CampusEngine {
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private doc: CampusDocument | null = null;
   private booted = false;
+  private managerTimer: ReturnType<typeof setInterval> | null = null;
+  private probeTimer: ReturnType<typeof setInterval> | null = null;
 
   /** Load persisted state, build the simulation, mount the renderer. */
   async boot(host: HTMLElement): Promise<void> {
@@ -100,6 +106,65 @@ export class CampusEngine {
     sound.setEnabled(doc.settings.soundEnabled);
     sound.setVolume(doc.settings.soundVolume);
 
+    /* -- Mission control ------------------------------------------- */
+    this.manager = new ManagerEngine({
+      // The Manager mutates the campus document through the same store the
+      // renderer and persistence read, so nothing can drift out of sync.
+      commit: (mutate) => {
+        const current = useCampus.getState().doc;
+        if (!current) return;
+        const draft: CampusDocument = { ...current };
+        mutate(draft);
+        useCampus.getState().setDoc(draft);
+      },
+      read: () => useCampus.getState().doc,
+      notify: (event) => {
+        void notifier.send(event);
+        useCampus.getState().pushLog({
+          severity:
+            event.kind === 'mission_failed' || event.kind === 'agent_blocked'
+              ? 'error'
+              : event.kind === 'approval_needed' || event.kind === 'deadline'
+                ? 'warn'
+                : 'good',
+          text: `${event.title}: ${event.body}`,
+        });
+        if (event.kind === 'mission_complete') sound.play('task_complete');
+        if (event.kind === 'approval_needed') sound.play('approval');
+        if (event.kind === 'mission_failed') sound.play('error');
+      },
+    });
+
+    notifier.setEnabled(doc.settings.notifications);
+
+    // Advance missions on a steady cadence. The engine is re-entrant-guarded,
+    // so a slow model simply means the next tick finds work still running.
+    this.managerTimer = setInterval(() => {
+      const state = useCampus.getState();
+      // The owner's pause and emergency stop outrank the Manager.
+      if (state.mode !== 'running') {
+        // Nothing real is running, so the campus must stop showing mission work.
+        this.sim?.applyDirectives([]);
+        return;
+      }
+      void this.manager?.tick();
+      // Push real mission state into the campus so the map mirrors the backend
+      // rather than inventing activity.
+      this.sim?.applyDirectives(this.manager?.directives() ?? []);
+    }, 700);
+
+    // Discover which brains are available, then re-check periodically so
+    // starting Ollama is picked up without a restart.
+    const probe = (): void => {
+      const current = useCampus.getState().doc;
+      if (!current) return;
+      void providers
+        .probeAll({ ollamaUrl: current.settings.ollamaUrl })
+        .then((list) => useCampus.getState().setProviderStatuses(list));
+    };
+    probe();
+    this.probeTimer = setInterval(probe, 30000);
+
     // Mirror the simulation into React at a human-readable rate.
     this.snapshotTimer = setInterval(() => {
       if (!this.sim) return;
@@ -139,6 +204,7 @@ export class CampusEngine {
     if (!prev || prev.settings !== next.settings) {
       sound.setEnabled(next.settings.soundEnabled);
       sound.setVolume(next.settings.soundVolume);
+      notifier.setEnabled(next.settings.notifications);
       if (next.settings.soundEnabled && next.settings.ambientActivity) sound.startAmbient();
       else sound.stopAmbient();
     }
@@ -185,10 +251,44 @@ export class CampusEngine {
 
   setMode(mode: SystemMode, reason: string): void {
     this.sim?.setMode(mode, reason);
+    // Pausing or stopping the campus must also stop real mission work, not
+    // just the visuals.
+    if (mode !== 'running') this.manager?.abortAll();
+    else void this.manager?.tick();
   }
 
   emergencyStop(): void {
+    this.manager?.abortAll();
     this.sim?.emergencyStop();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Missions                                                          */
+  /* ---------------------------------------------------------------- */
+
+  async startMission(input: StartMissionInput): Promise<string | null> {
+    const id = (await this.manager?.startMission(input)) ?? null;
+    if (id) {
+      useCampus.getState().pushLog({ severity: 'good', text: `Mission started: ${input.goal}` });
+    }
+    return id;
+  }
+
+  cancelMission(missionId: string): void {
+    this.manager?.cancelMission(missionId);
+  }
+
+  resolveSubtaskApproval(subtaskId: string, approved: boolean): void {
+    this.manager?.resolveApproval(subtaskId, approved);
+  }
+
+  /** Re-designate which agent acts as Manager. */
+  setManagerAgent(agentId: string): void {
+    const doc = useCampus.getState().doc;
+    if (!doc || !doc.agents.some((a) => a.id === agentId)) return;
+    useCampus.getState().setDoc({ ...doc, managerAgentId: agentId });
+    const name = doc.agents.find((a) => a.id === agentId)?.name ?? agentId;
+    useCampus.getState().pushLog({ severity: 'info', text: `${name} is now the Manager.` });
   }
 
   resolveApproval(taskId: string, approved: boolean): void {
@@ -212,7 +312,13 @@ export class CampusEngine {
 
   shutdown(): void {
     if (this.snapshotTimer) clearInterval(this.snapshotTimer);
+    if (this.managerTimer) clearInterval(this.managerTimer);
+    if (this.probeTimer) clearInterval(this.probeTimer);
     this.snapshotTimer = null;
+    this.managerTimer = null;
+    this.probeTimer = null;
+    this.manager?.dispose();
+    this.manager = null;
     this.unsubscribeBus?.();
     this.unsubscribeStore?.();
     this.unsubscribeBus = null;
