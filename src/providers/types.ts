@@ -50,6 +50,11 @@ export interface GenerateRequest {
   kind: WorkKind;
   /** Soft cap on output length. */
   maxTokens: number;
+  /**
+   * Distinguishes repeat attempts at the same work. A retry must be a genuinely
+   * new attempt, not a replay of the one that just failed.
+   */
+  nonce?: number;
   signal?: AbortSignal;
 }
 
@@ -101,4 +106,10 @@ export interface AiProviderAdapter {
 
 export interface ProviderConfig {
   ollamaUrl: string;
+  /**
+   * Overrides the offline provider's artificial think-time. The default pace
+   * exists so campus animation is watchable; tests and headless runs set this
+   * low to execute at full speed.
+   */
+  offlineDelayMs?: number;
 }

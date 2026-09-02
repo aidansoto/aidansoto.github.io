@@ -189,14 +189,15 @@ export class OfflineProvider implements AiProviderAdapter {
   async generate(
     req: GenerateRequest,
     modelId: string,
-    _config: ProviderConfig,
+    config: ProviderConfig,
   ): Promise<GenerateResult> {
     const started = Date.now();
-    const seed = hash(req.prompt + req.kind + modelId);
+    const seed = hash(`${req.prompt}${req.kind}${modelId}${req.nonce ?? 0}`);
 
     // A short, bounded delay so the campus animates at a watchable pace and
-    // concurrency is genuinely exercised. Deterministic per instruction.
-    const delay = 600 + (seed % 1400);
+    // concurrency is genuinely exercised. Deterministic per instruction, and
+    // overridable so headless runs execute at full speed.
+    const delay = config.offlineDelayMs ?? 600 + (seed % 1400);
     await new Promise<void>((resolve) => {
       const t = setTimeout(resolve, delay);
       req.signal?.addEventListener('abort', () => {
