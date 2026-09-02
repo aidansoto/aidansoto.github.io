@@ -114,9 +114,9 @@ describe('normalizeCampus', () => {
   });
 
   it('records a migration note for an older schema version', () => {
-    const older = { ...createDefaultCampus(), version: 0 };
+    const older = { ...createDefaultCampus(), version: 1 };
     const { repairs } = normalizeCampus(JSON.parse(JSON.stringify(older)));
-    expect(repairs.some((r) => r.includes('Migrated'))).toBe(true);
+    expect(repairs.some((r) => r.includes('upgraded from schema v1'))).toBe(true);
   });
 
   it('drops buildings with an unusable footprint', () => {

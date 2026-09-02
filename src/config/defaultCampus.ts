@@ -18,8 +18,10 @@ import type {
   RoomConfig,
 } from '@/core/types';
 import { DEFAULT_THEME_ID } from './themes';
+import { CURRENT_SCHEMA_VERSION } from './migrate';
 
-export const CAMPUS_SCHEMA_VERSION = 1;
+/** Re-exported for callers that pin the version; migrations own the value. */
+export { CURRENT_SCHEMA_VERSION as CAMPUS_SCHEMA_VERSION } from './migrate';
 
 export const GRID_W = 96;
 export const GRID_H = 96;
@@ -369,24 +371,19 @@ export function defaultProps(): PropConfig[] {
  * branches on them, and the owner replaces them from the interface.
  */
 const AGENT_SEED: Array<[string, string, AgentConfig['presentation'], string, number]> = [
+  // Ten agents: one is designated Manager (by default the first), the rest are
+  // flexible workers. No role here is permanent — the Manager assigns temporary
+  // roles per mission and clears them when the mission ends.
   ['Agent 01', 'Unassigned', 'suit_black', 'building_command_tower', 0],
   ['Agent 02', 'Unassigned', 'suit_alt', 'building_command_tower', 0],
   ['Agent 03', 'Unassigned', 'suit_black', 'building_operations', 0],
   ['Agent 04', 'Unassigned', 'suit_alt', 'building_operations', 1],
-  ['Agent 05', 'Unassigned', 'suit_black', 'building_operations', 0],
+  ['Agent 05', 'Unassigned', 'suit_black', 'building_research', 0],
   ['Agent 06', 'Unassigned', 'suit_alt', 'building_research', 2],
-  ['Agent 07', 'Unassigned', 'suit_black', 'building_research', 0],
-  ['Agent 08', 'Unassigned', 'suit_black', 'building_automation', 0],
-  ['Agent 09', 'Unassigned', 'suit_alt', 'building_automation', 3],
-  ['Agent 10', 'Unassigned', 'suit_black', 'building_archive', 0],
-  ['Agent 11', 'Unassigned', 'suit_alt', 'building_security', 1],
-  ['Agent 12', 'Unassigned', 'suit_black', 'building_security', 0],
-  ['Agent 13', 'Unassigned', 'suit_alt', 'building_comms', 0],
-  ['Agent 14', 'Unassigned', 'suit_black', 'building_studio', 0],
-  ['Agent 15', 'Unassigned', 'suit_alt', 'building_studio', 2],
-  ['Agent 16', 'Unassigned', 'suit_black', 'building_transport', 0],
-  ['Agent 17', 'Unassigned', 'suit_alt', 'building_research', 1],
-  ['Agent 18', 'Unassigned', 'suit_black', 'building_operations', 0],
+  ['Agent 07', 'Unassigned', 'suit_black', 'building_automation', 0],
+  ['Agent 08', 'Unassigned', 'suit_alt', 'building_studio', 3],
+  ['Agent 09', 'Unassigned', 'suit_black', 'building_archive', 0],
+  ['Agent 10', 'Unassigned', 'suit_alt', 'building_security', 1],
 ];
 
 export function defaultAgents(buildings: BuildingConfig[]): AgentConfig[] {
@@ -437,6 +434,13 @@ export function defaultSettings(): CampusSettings {
     soundVolume: 0.4,
     allowTeleport: false,
     autoResolveApprovals: true,
+    // Mission control. Free-only routing is the default so the campus can
+    // never reach for a paid provider on its own.
+    routingMode: 'auto_free',
+    smartRouter: true,
+    notifications: true,
+    ollamaUrl: 'http://127.0.0.1:11434',
+    ambientTaskSimulation: true,
     cameraEdgePan: false,
     showGrid: false,
   };
@@ -468,12 +472,13 @@ export function defaultBridges(): CampusDocument['bridges'] {
 
 export function createDefaultCampus(): CampusDocument {
   const buildings = defaultBuildings();
+  const agents = defaultAgents(buildings);
   return {
-    version: CAMPUS_SCHEMA_VERSION,
+    version: CURRENT_SCHEMA_VERSION,
     campusName: 'Obsidian Campus',
     gridSize: { w: GRID_W, h: GRID_H },
     buildings,
-    agents: defaultAgents(buildings),
+    agents,
     settings: defaultSettings(),
     themeId: DEFAULT_THEME_ID,
     props: defaultProps(),
@@ -481,5 +486,16 @@ export function createDefaultCampus(): CampusDocument {
     water: defaultWater(),
     plots: defaultPlots(),
     bridges: defaultBridges(),
+
+    // Mission control starts empty; the first agent is Manager by default and
+    // can be reassigned at any time from the dashboard.
+    managerAgentId: agents[0]?.id ?? null,
+    missions: [],
+    subtasks: [],
+    assignments: [],
+    memory: [],
+    modelStats: [],
+    knowledge: [],
+    workflows: [],
   };
 }

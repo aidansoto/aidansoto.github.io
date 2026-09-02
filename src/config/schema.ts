@@ -18,9 +18,11 @@ import type {
   PropKind,
 } from '@/core/types';
 import { clamp } from '@/core/iso';
+import type { RoutingMode } from '@/core/mission';
 import { THEMES, DEFAULT_THEME_ID } from './themes';
+import { migrate, CURRENT_SCHEMA_VERSION } from './migrate';
+import { MAX_AGENTS } from '@/core/mission';
 import {
-  CAMPUS_SCHEMA_VERSION,
   GRID_H,
   GRID_W,
   createDefaultCampus,
@@ -38,6 +40,14 @@ const BUILDING_STYLES: BuildingStyle[] = [
   'suite',
   'hub',
   'annex',
+];
+
+const ROUTING_MODES: RoutingMode[] = [
+  'auto_balanced',
+  'auto_free',
+  'auto_fast',
+  'auto_quality',
+  'manual',
 ];
 
 const PROP_KINDS: PropKind[] = [
@@ -121,6 +131,18 @@ export function normalizeSettings(v: unknown): CampusSettings {
     autoResolveApprovals: bool(v.autoResolveApprovals, d.autoResolveApprovals),
     cameraEdgePan: bool(v.cameraEdgePan, d.cameraEdgePan),
     showGrid: bool(v.showGrid, d.showGrid),
+
+    routingMode: ROUTING_MODES.includes(v.routingMode as RoutingMode)
+      ? (v.routingMode as RoutingMode)
+      : d.routingMode,
+    smartRouter: bool(v.smartRouter, d.smartRouter),
+    notifications: bool(v.notifications, d.notifications),
+    // Only ever a loopback/LAN address for a local server; anything else falls
+    // back to the default rather than letting a stray value be contacted.
+    ollamaUrl: typeof v.ollamaUrl === 'string' && /^https?:\/\//.test(v.ollamaUrl)
+      ? v.ollamaUrl
+      : d.ollamaUrl,
+    ambientTaskSimulation: bool(v.ambientTaskSimulation, d.ambientTaskSimulation),
   };
 }
 
@@ -269,13 +291,19 @@ function normalizeProp(v: unknown, gw: number, gh: number, index: number): PropC
  * Turn arbitrary parsed JSON into a campus document that the renderer can
  * safely consume. Never throws.
  */
-export function normalizeCampus(input: unknown): NormalizeResult {
+export function normalizeCampus(rawInput: unknown): NormalizeResult {
   const repairs: string[] = [];
   const fallback = createDefaultCampus();
 
-  if (!isRecord(input)) {
+  if (!isRecord(rawInput)) {
     return { doc: fallback, repairs: ['No saved campus found — loaded the default layout.'] };
   }
+
+  // Upgrade older documents before validating, so migration notes surface to
+  // the owner and v1 data is never mistaken for corruption.
+  const migrated = migrate(rawInput);
+  repairs.push(...migrated.notes);
+  const input = migrated.doc;
 
   const gw = clamp(Math.round(num((input.gridSize as Record<string, unknown>)?.w, GRID_W)), 24, 512);
   const gh = clamp(Math.round(num((input.gridSize as Record<string, unknown>)?.h, GRID_H)), 24, 512);
@@ -309,10 +337,30 @@ export function normalizeCampus(input: unknown): NormalizeResult {
     agents.push(na);
   });
 
+  // Hard cap. Migration already archives overflow; this is the last line of
+  // defence against a hand-edited document exceeding it.
+  if (agents.length > MAX_AGENTS) {
+    agents.length = MAX_AGENTS;
+    repairs.push(`Roster trimmed to the ${MAX_AGENTS}-agent maximum.`);
+  }
+
+  // The Manager must be a real agent on the current roster.
+  let managerAgentId =
+    typeof input.managerAgentId === 'string' && agentIds.has(input.managerAgentId)
+      ? input.managerAgentId
+      : null;
+  if (!managerAgentId && agents.length > 0) {
+    managerAgentId = agents[0].id;
+    if (typeof input.managerAgentId === 'string') {
+      repairs.push(`Manager agent was missing — reassigned to ${agents[0].name}.`);
+    }
+  }
+  if (managerAgentId && !agents.some((a) => a.id === managerAgentId)) managerAgentId = agents[0]?.id ?? null;
+
   const themeId = typeof input.themeId === 'string' && THEMES[input.themeId] ? input.themeId : DEFAULT_THEME_ID;
 
   const doc: CampusDocument = {
-    version: CAMPUS_SCHEMA_VERSION,
+    version: CURRENT_SCHEMA_VERSION,
     campusName: str(input.campusName, fallback.campusName),
     gridSize: { w: gw, h: gh },
     buildings,
@@ -350,10 +398,38 @@ export function normalizeCampus(input: unknown): NormalizeResult {
         };
       })
       .filter((b): b is CampusDocument['bridges'][number] => b !== null),
+
+    /* -- Mission control ------------------------------------------- */
+    // These collections are produced by the app itself rather than hand-edited,
+    // so they are carried across as-is when they are arrays and reset to empty
+    // when they are not. A malformed mission must never block startup.
+    managerAgentId,
+    missions: Array.isArray(input.missions) ? (input.missions as CampusDocument['missions']) : [],
+    subtasks: Array.isArray(input.subtasks) ? (input.subtasks as CampusDocument['subtasks']) : [],
+    assignments: Array.isArray(input.assignments)
+      ? (input.assignments as CampusDocument['assignments'])
+      : [],
+    memory: Array.isArray(input.memory) ? (input.memory as CampusDocument['memory']) : [],
+    modelStats: Array.isArray(input.modelStats)
+      ? (input.modelStats as CampusDocument['modelStats'])
+      : [],
+    knowledge: Array.isArray(input.knowledge) ? (input.knowledge as CampusDocument['knowledge']) : [],
+    workflows: Array.isArray(input.workflows) ? (input.workflows as CampusDocument['workflows']) : [],
   };
 
-  if (num(input.version, 0) !== CAMPUS_SCHEMA_VERSION) {
-    repairs.push(`Migrated campus from schema v${num(input.version, 0)} to v${CAMPUS_SCHEMA_VERSION}.`);
+  // Drop mission references to agents that no longer exist, so the dashboard
+  // never renders a ghost assignment.
+  const liveAgents = new Set(doc.agents.map((a) => a.id));
+  doc.assignments = doc.assignments.filter((a) => liveAgents.has(a.agentId));
+  const orphaned = doc.subtasks.filter(
+    (t) => t.assignedAgentId !== null && !liveAgents.has(t.assignedAgentId),
+  );
+  for (const t of orphaned) {
+    t.assignedAgentId = null;
+    if (t.status === 'assigned' || t.status === 'in_progress') t.status = 'ready';
+  }
+  if (orphaned.length > 0) {
+    repairs.push(`${orphaned.length} subtask(s) were returned to the queue — their agent is gone.`);
   }
 
   return { doc, repairs };

@@ -1,3 +1,14 @@
+import type {
+  KnowledgeEntry,
+  MemoryFact,
+  Mission,
+  ModelStat,
+  RoleAssignment,
+  RoutingMode,
+  Subtask,
+  Workflow,
+} from './mission';
+
 /**
  * Shared domain types.
  *
@@ -290,6 +301,25 @@ export interface CampusSettings {
    * the owner. Simulation-only — it grants no authority to the visual layer.
    */
   autoResolveApprovals: boolean;
+
+  /* ---- Mission control (schema v2) -------------------------------- */
+
+  /** Default routing mode for new missions. */
+  routingMode: RoutingMode;
+  /**
+   * When on, the router may override an agent's default model for a specific
+   * subtask if a better-suited model is available.
+   */
+  smartRouter: boolean;
+  /** Send macOS notifications for mission events. */
+  notifications: boolean;
+  /** Where a local Ollama server is expected. Never contacted unless probed. */
+  ollamaUrl: string;
+  /**
+   * Ambient simulated task traffic. Automatically suppressed while a real
+   * mission is running so the campus only ever shows genuine work.
+   */
+  ambientTaskSimulation: boolean;
   cameraEdgePan: boolean;
   showGrid: boolean;
 }
@@ -326,6 +356,24 @@ export interface CampusDocument {
   plots: GridRect[];
   /** Glass skybridges linking building pairs at height. */
   bridges: BridgeConfig[];
+
+  /* ---- Mission control (schema v2) -------------------------------- */
+
+  /**
+   * Which agent acts as Manager / CEO. Changeable at any time; it is a
+   * designation, not a permanent property of the agent.
+   */
+  managerAgentId: string | null;
+  missions: Mission[];
+  subtasks: Subtask[];
+  /** Temporary mission roles. Cleared when a mission ends. */
+  assignments: RoleAssignment[];
+  /** What the Manager has learned, with timestamps and sources. */
+  memory: MemoryFact[];
+  /** Rolling model performance, used by the Smart Router. */
+  modelStats: ModelStat[];
+  knowledge: KnowledgeEntry[];
+  workflows: Workflow[];
 }
 
 export interface BridgeConfig {
