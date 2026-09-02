@@ -122,6 +122,16 @@ export function SettingsPanel(): JSX.Element | null {
       />
       <Toggle label="Ambient campus activity" checked={s.ambientActivity} onChange={(v) => patch({ ambientActivity: v })} />
       <Toggle label="Idle agent wandering" checked={s.idleMovement} onChange={(v) => patch({ idleMovement: v })} />
+      <Toggle
+        label="Simulated work when idle"
+        checked={s.ambientTaskSimulation}
+        onChange={(v) => patch({ ambientTaskSimulation: v })}
+      />
+      <p className="empty" style={{ textAlign: 'left', padding: '0 0 10px' }}>
+        Keeps the campus moving between missions. It already stops on its own
+        while a mission is running — turn it off and the campus only ever shows
+        real work.
+      </p>
       <Toggle label="Reduced motion" checked={s.reducedMotion} onChange={(v) => patch({ reducedMotion: v })} />
       <Toggle label="Teleport for long trips" checked={s.allowTeleport} onChange={(v) => patch({ allowTeleport: v })} />
 

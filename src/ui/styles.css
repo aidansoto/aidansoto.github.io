@@ -975,9 +975,17 @@ input[type='range']::-webkit-slider-thumb {
 
 /* Dashboard ------------------------------------------------------- */
 
+/* Three columns at most, and a fixed count at each width.
+   `auto-fit` was tempting but wrong here: on a wide display it produced five
+   or six narrow columns while the card spans still added up to eight, so the
+   last row stopped short and left a band of dead space. A fixed column count
+   whose spans divide evenly keeps every row full at every supported size. */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Dense back-fills the single-column hole a two-column card leaves when it
+     cannot start mid-row. Reading order shifts by one card at most. */
+  grid-auto-flow: row dense;
   gap: 16px;
   align-items: start;
 }
@@ -990,10 +998,18 @@ input[type='range']::-webkit-slider-thumb {
   min-width: 0;
 }
 
-/* The two cards that carry the most information get a full row when there
-   is space for it. */
+/* The two cards that carry the most information take two columns of three. */
 .dash-wide { grid-column: span 2; }
-@media (max-width: 1100px) { .dash-wide { grid-column: span 1; } }
+
+@media (max-width: 1400px) {
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-wide { grid-column: span 2; }
+}
+
+@media (max-width: 1000px) {
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .dash-wide { grid-column: span 1; }
+}
 
 .dash-title {
   margin: 0 0 12px;

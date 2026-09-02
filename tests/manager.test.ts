@@ -225,6 +225,35 @@ describe('a full mission, offline and free', () => {
     expect(get().agents).toHaveLength(10);
   }, 30000);
 
+  // Subtasks mostly run in sequence, so an unbalanced picker hands every step
+  // to whichever agent sorts first and the other eight never work.
+  it('spreads a mission across the bench instead of one agent doing everything', async () => {
+    const { engine, get } = harness();
+    await engine.startMission({
+      goal: 'Research the market, analyse the findings, write the report, and test the result',
+      deadline: null, priority: 'normal', routingMode: 'auto_free', attachments: [],
+    });
+    await runToCompletion(engine, get);
+
+    const subtasks = get().subtasks;
+    expect(subtasks.length).toBeGreaterThanOrEqual(4);
+
+    const workers = new Set(subtasks.map((s) => s.assignedAgentId).filter(Boolean));
+    expect(workers.size).toBeGreaterThan(1);
+
+    // And no single agent carries most of the mission.
+    const counts = new Map<string, number>();
+    for (const s of subtasks) {
+      if (s.assignedAgentId) counts.set(s.assignedAgentId, (counts.get(s.assignedAgentId) ?? 0) + 1);
+    }
+    const busiest = Math.max(...counts.values());
+    expect(busiest).toBeLessThan(subtasks.length);
+
+    // Reviewing is spread too, rather than falling to one permanent reviewer.
+    const reviewers = new Set(subtasks.map((s) => s.reviewerAgentId).filter(Boolean));
+    expect(reviewers.size).toBeGreaterThan(1);
+  }, 30000);
+
   it('leaves permanent agent config untouched by temporary roles', async () => {
     const { engine, get } = harness();
     const before = JSON.parse(JSON.stringify(get().agents));

@@ -94,6 +94,44 @@ describe('createAutosave', () => {
     await createAutosave(store, 200).flush();
     expect(spy).not.toHaveBeenCalled();
   });
+
+  // A running mission mutates the document continuously. A plain trailing
+  // debounce would reset its timer on every change and never write, so a
+  // force-quit mid-mission would lose everything since the last quiet moment.
+  it('still writes under a change stream that never pauses', async () => {
+    const store = new MemoryStore();
+    const spy = vi.spyOn(store, 'save');
+    const autosave = createAutosave(store, 700, 3000);
+    const doc = createDefaultCampus();
+
+    // Sixteen seconds of changes arriving faster than the debounce delay, so
+    // the trailing timer is cleared every time and never fires on its own.
+    for (let i = 0; i < 40; i++) {
+      autosave.schedule({ ...doc, campusName: `Tick ${i}` });
+      await vi.advanceTimersByTimeAsync(400);
+    }
+
+    // One write per ceiling window, give or take the final partial window.
+    expect(spy.mock.calls.length).toBeGreaterThanOrEqual(4);
+    expect(spy.mock.calls.length).toBeLessThan(10);
+    const loaded = await store.load();
+    expect(loaded.doc.campusName).toMatch(/^Tick /);
+  });
+
+  it('does not write on every change when the ceiling is not reached', async () => {
+    const store = new MemoryStore();
+    const spy = vi.spyOn(store, 'save');
+    const autosave = createAutosave(store, 200, 3000);
+    const doc = createDefaultCampus();
+
+    for (let i = 0; i < 10; i++) {
+      autosave.schedule({ ...doc, campusName: `Drag ${i}` });
+      await vi.advanceTimersByTimeAsync(50);
+    }
+    await vi.advanceTimersByTimeAsync(250);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0].campusName).toBe('Drag 9');
+  });
 });
 
 describe('EventBus', () => {

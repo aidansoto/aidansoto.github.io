@@ -149,26 +149,48 @@ export function getStore(): CampusStore {
 }
 
 /**
- * Debounced writer. Settings changes fire constantly while a slider is being
- * dragged; disk should see one write, not four hundred.
+ * Debounced writer with a ceiling on how long a change may go unwritten.
+ *
+ * Settings changes fire constantly while a slider is being dragged; disk should
+ * see one write, not four hundred. But a plain trailing debounce starves under
+ * sustained change: a running mission touches the document every few hundred
+ * milliseconds, so the timer is cleared before it ever fires and nothing
+ * reaches disk until the campus finally goes quiet. A force-quit mid-mission
+ * would then lose the whole mission. `maxWaitMs` bounds that: once a change has
+ * been waiting that long, the next `schedule` writes instead of deferring.
  */
-export function createAutosave(store: CampusStore, delayMs = 700): {
+export function createAutosave(store: CampusStore, delayMs = 700, maxWaitMs = 3000): {
   schedule(doc: CampusDocument): void;
   flush(): Promise<void>;
 } {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let pending: CampusDocument | null = null;
+  /** When the oldest currently-unwritten change arrived. */
+  let oldestPendingAt = 0;
 
   const write = async (): Promise<void> => {
     if (!pending) return;
     const doc = pending;
     pending = null;
+    oldestPendingAt = 0;
     await store.save(doc);
   };
 
   return {
     schedule(doc: CampusDocument): void {
+      const now = Date.now();
+      if (!pending) oldestPendingAt = now;
       pending = doc;
+
+      if (now - oldestPendingAt >= maxWaitMs) {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        void write();
+        return;
+      }
+
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         timer = null;

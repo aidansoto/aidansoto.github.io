@@ -33,7 +33,18 @@ export function TopBar(): JSX.Element {
     ),
   ).length;
   const trouble = agents.filter((a) => a.state === 'blocked' || a.state === 'failed').length;
-  const activeTasks = tasks.filter((t) => t.stage !== 'archived' && t.stage !== 'failed').length;
+
+  // While a real mission is running the campus stops generating ambient work,
+  // so counting ambient tasks would leave a stale number on screen next to
+  // agents doing something else entirely. Real mission work wins when it exists.
+  const liveMissions = doc?.missions.filter((m) => m.status === 'running' || m.status === 'planning') ?? [];
+  const missionTasks = (doc?.subtasks ?? []).filter(
+    (s) =>
+      liveMissions.some((m) => m.id === s.missionId) &&
+      !['done', 'failed', 'cancelled'].includes(s.status),
+  ).length;
+  const ambientTasks = tasks.filter((t) => t.stage !== 'archived' && t.stage !== 'failed').length;
+  const activeTasks = liveMissions.length > 0 ? missionTasks : ambientTasks;
 
   return (
     <header className="topbar">

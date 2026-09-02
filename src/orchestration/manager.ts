@@ -321,9 +321,16 @@ export class ManagerEngine {
   /**
    * Choose a worker for a subtask.
    *
-   * Never the Manager (it coordinates rather than executes), never an agent
-   * already holding work, and preferring agents this mission has already
-   * borrowed so a mission keeps a stable crew.
+   * Never the Manager (it coordinates rather than executes) and never an agent
+   * already holding work.
+   *
+   * Beyond that the Manager balances three things. Demonstrated skill leads:
+   * an agent that has done this kind of work well before is the strongest
+   * signal there is. Continuity is a mild preference — a mission that keeps
+   * roughly the same crew carries context between steps. Load is a penalty,
+   * and it matters more than it looks: a mission's subtasks mostly run in
+   * sequence, so without it every step falls to whichever agent happens to sort
+   * first and one worker carries the whole mission while eight sit idle.
    */
   private pickWorker(st: Subtask): string | null {
     const doc = this.cb.read();
@@ -342,12 +349,23 @@ export class ManagerEngine {
     const mission = doc.missions.find((m) => m.id === st.missionId);
     const onMission = new Set(mission?.workerAgentIds ?? []);
 
+    // How much of this mission each agent is already carrying — as a worker or
+    // as a reviewer, since reviewing is real work too.
+    const load = new Map<string, number>();
+    for (const s of doc.subtasks) {
+      if (s.missionId !== st.missionId) continue;
+      for (const id of [s.assignedAgentId, s.reviewerAgentId]) {
+        if (id) load.set(id, (load.get(id) ?? 0) + 1);
+      }
+    }
+
     // Manager memory: prefer agents that have done well at this kind of work.
     const facts = recallFacts(doc.memory, 'agent_performance');
     const scoreOf = (agentId: string): number => {
-      let score = onMission.has(agentId) ? 1 : 0;
+      let score = onMission.has(agentId) ? 0.25 : 0;
       const fact = facts.find((f) => f.subject === `${agentId}:${st.kind}`);
       if (fact) score += fact.confidence * 2;
+      score -= (load.get(agentId) ?? 0) * 0.5;
       return score;
     };
 
@@ -538,10 +556,21 @@ export class ManagerEngine {
         .filter((s) => s.id !== subtaskId && s.assignedAgentId && ['assigned', 'in_progress'].includes(s.status))
         .map((s) => s.assignedAgentId as string),
     );
-    const reviewer =
-      doc.agents.find(
-        (a) => a.id !== st.assignedAgentId && a.id !== doc.managerAgentId && !busy.has(a.id),
-      ) ?? doc.agents.find((a) => a.id !== st.assignedAgentId && a.id !== doc.managerAgentId);
+    // Spread reviewing across the bench for the same reason work is spread:
+    // taking the first eligible agent every time makes one worker the
+    // mission's permanent reviewer.
+    const reviewLoad = new Map<string, number>();
+    for (const s of doc.subtasks) {
+      if (s.missionId !== st.missionId || !s.reviewerAgentId) continue;
+      reviewLoad.set(s.reviewerAgentId, (reviewLoad.get(s.reviewerAgentId) ?? 0) + 1);
+    }
+    const eligible = doc.agents.filter((a) => a.id !== st.assignedAgentId && a.id !== doc.managerAgentId);
+    const leastLoaded = (pool: typeof eligible): (typeof eligible)[number] | undefined =>
+      pool.length === 0
+        ? undefined
+        : [...pool].sort((a, b) => (reviewLoad.get(a.id) ?? 0) - (reviewLoad.get(b.id) ?? 0))[0];
+
+    const reviewer = leastLoaded(eligible.filter((a) => !busy.has(a.id))) ?? leastLoaded(eligible);
 
     if (!reviewer) {
       // Nobody free to review: accept the work rather than deadlock, and say so.
