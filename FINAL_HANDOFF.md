@@ -13,9 +13,32 @@ for how to use it. This document covers getting it running.
 | --- | --- |
 | **Project name** | Obsidian Campus (placeholder — rename any time in `src-tauri/tauri.conf.json` → `productName` and Settings → Campus Name) |
 | **Project folder** | `aidansoto.github.io` (clone as `obsidian-campus` if you prefer: `git clone <repo> obsidian-campus`) |
-| **GitHub repository** | `https://github.com/aidansoto/aidansoto.github.io` — **private**, branch `claude/mission-control-upgrade` |
+| **GitHub repository** | `https://github.com/aidansoto/aidansoto.github.io` — ⚠️ **currently public**, see below. Branch `claude/mission-control-upgrade` |
 | **Version** | 0.1.0 |
 | **Operating mode** | Offline Simulation (default; free; no API keys; no network use) |
+
+## ⚠️ Repository visibility
+
+**`aidansoto/aidansoto.github.io` is a public repository.** It was already
+public before this work started — it is a GitHub Pages user site, and those are
+public by default — and nothing here changed that. But you asked for the
+repository to stay private, so this needs a decision from you.
+
+Nothing sensitive is in it: no keys exist anywhere in the project, none are
+requested or stored, and `.gitignore` excludes secrets, local databases, logs
+and build output. What *is* public is all of the source code.
+
+Your options:
+
+1. **Make it private.** Settings → General → Danger Zone → Change visibility.
+   This **turns off GitHub Pages** for the site — `aidansoto.github.io` will
+   stop serving. Fine if you weren't using it.
+2. **Move the app to its own private repository** and leave this one as your
+   public Pages site. Cleanest if you want both.
+3. **Leave it public.** It's your own project code, and there is nothing
+   confidential in it.
+
+Nobody but you should make this call, so it has been left exactly as it was.
 
 ## Getting it running on your Mac
 
@@ -172,4 +195,6 @@ Nothing here needs changing to keep it free. If you do connect one:
 - Store the key in the **macOS Keychain**, never in a file in this repository.
 - Keep FREE ONLY as the default routing mode; switch per mission when you
   actually want to spend.
-- The repository is private. Keep it that way unless you have a reason not to.
+- **Settle the repository visibility question above first.** A key must never
+  go in a file in this repository regardless, but that matters a great deal
+  more while the repository is public.
