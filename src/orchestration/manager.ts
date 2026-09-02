@@ -119,6 +119,10 @@ export class ManagerEngine {
     const doc = this.cb.read();
     if (!doc) return null;
 
+    // The dialog checks this too, but the engine is the boundary that matters:
+    // a mission with nothing to do would plan nothing and deliver nothing.
+    if (input.goal.trim().length < 3) return null;
+
     const managerId = doc.managerAgentId ?? doc.agents[0]?.id ?? null;
     if (!managerId) return null;
 
@@ -247,12 +251,28 @@ export class ManagerEngine {
     }
   }
 
+  /**
+   * Is this mission still one the Manager may act on?
+   *
+   * Work is asynchronous, so a subtask can finish or fail *after* its mission
+   * was cancelled or ended. Every path that would put a subtask back into a
+   * runnable state has to ask this first, or a cancelled mission quietly
+   * revives itself one subtask at a time.
+   */
+  private missionIsLive(missionId: string): boolean {
+    const m = this.cb.read()?.missions.find((x) => x.id === missionId);
+    return m?.status === 'running' || m?.status === 'planning';
+  }
+
   /** Promote `pending` subtasks whose dependencies are all satisfied. */
   private refreshReadiness(): void {
     this.cb.commit((d) => {
+      const live = new Set(
+        d.missions.filter((m) => m.status === 'running' || m.status === 'planning').map((m) => m.id),
+      );
       const byId = new Map(d.subtasks.map((s) => [s.id, s]));
       for (const st of d.subtasks) {
-        if (st.status !== 'pending') continue;
+        if (st.status !== 'pending' || !live.has(st.missionId)) continue;
         const ready = st.dependsOn.every((dep) => byId.get(dep)?.status === 'done');
         if (ready) st.status = 'ready';
       }
@@ -549,6 +569,9 @@ export class ManagerEngine {
     const st = doc?.subtasks.find((s) => s.id === subtaskId);
     const mission = doc && st ? doc.missions.find((m) => m.id === st.missionId) : null;
     if (!doc || !st || !mission || !st.output) return;
+    // Work that landed after the mission was stopped is not reviewed — a
+    // rejection here would push the subtask back to `ready` and restart it.
+    if (!this.missionIsLive(mission.id)) return;
 
     // A reviewer must be someone other than the author.
     const busy = new Set(
@@ -709,6 +732,9 @@ export class ManagerEngine {
     const doc = this.cb.read();
     const st = doc?.subtasks.find((s) => s.id === subtaskId);
     if (!doc || !st) return;
+    // An abort from cancel, pause or emergency stop arrives here as a failure.
+    // Retrying it would restart the very work the owner just stopped.
+    if (!this.missionIsLive(st.missionId)) return;
 
     if (st.retryCount >= LIMITS.maxRetries) {
       const mission = doc.missions.find((m) => m.id === st.missionId);

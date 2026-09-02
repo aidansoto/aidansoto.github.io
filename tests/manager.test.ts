@@ -326,6 +326,43 @@ describe('a full mission, offline and free', () => {
 });
 
 describe('owner controls', () => {
+  // Work is asynchronous: aborting an in-flight subtask surfaces as a failure,
+  // and the recovery path would put it straight back to `ready`. A cancelled
+  // mission that quietly revives itself is worse than one that never stopped.
+  it('a cancelled mission stays cancelled once in-flight work lands', async () => {
+    const { engine, get } = harness(150);
+    const id = await engine.startMission({
+      goal: 'Research the market, analyse it, write the report, and test it',
+      deadline: null, priority: 'normal', routingMode: 'auto_free', attachments: [],
+    });
+    await engine.tick();
+    await new Promise((r) => setTimeout(r, 40));
+    engine.cancelMission(id!);
+
+    // Give every in-flight promise time to resolve into the cancelled mission.
+    await new Promise((r) => setTimeout(r, 800));
+    await engine.tick();
+    await engine.tick();
+
+    expect(get().missions.find((m) => m.id === id)!.status).toBe('cancelled');
+    const revived = get().subtasks.filter(
+      (s) => s.missionId === id && ['ready', 'assigned', 'in_progress', 'revising', 'pending'].includes(s.status),
+    );
+    expect(revived).toHaveLength(0);
+    expect(get().assignments.filter((a) => a.missionId === id)).toHaveLength(0);
+  }, 30000);
+
+  it('refuses a goal with nothing in it', async () => {
+    const { engine, get } = harness();
+    expect(await engine.startMission({
+      goal: '   ', deadline: null, priority: 'normal', routingMode: 'auto_free', attachments: [],
+    })).toBeNull();
+    expect(await engine.startMission({
+      goal: 'ok', deadline: null, priority: 'normal', routingMode: 'auto_free', attachments: [],
+    })).toBeNull();
+    expect(get().missions).toHaveLength(0);
+  }, 20000);
+
   it('cancels a mission and releases its agents', async () => {
     const { engine, get } = harness(120);
     const id = await engine.startMission({
