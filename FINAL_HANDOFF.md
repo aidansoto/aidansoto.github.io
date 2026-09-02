@@ -12,7 +12,7 @@ for how to use it. This document covers getting it running.
 | | |
 | --- | --- |
 | **Project name** | Obsidian Campus (placeholder — rename any time in `src-tauri/tauri.conf.json` → `productName` and Settings → Campus Name) |
-| **Project folder** | `aidansoto.github.io` (clone as `obsidian-campus` if you prefer: `git clone <repo> obsidian-campus`) |
+| **Project folder** | `aidansoto.github.io` (clone it as `obsidian-campus` if you prefer) |
 | **GitHub repository** | `https://github.com/aidansoto/aidansoto.github.io` — ⚠️ **currently public**, see below. Branch `claude/mission-control-upgrade` |
 | **Version** | 0.1.0 |
 | **Operating mode** | Offline Simulation (default; free; no API keys; no network use) |
@@ -43,7 +43,7 @@ Nobody but you should make this call, so it has been left exactly as it was.
 ## Getting it running on your Mac
 
 ```bash
-git clone https://github.com/aidansoto/aidansoto.github.io.git obsidian-campus
+git clone -b claude/mission-control-upgrade https://github.com/aidansoto/aidansoto.github.io.git obsidian-campus
 cd obsidian-campus
 npm install
 npm run tauri build
@@ -141,7 +141,7 @@ revision browser.
 
 ## What was tested, and how
 
-**Automated:** 295 frontend tests across 12 files, 4 Rust tests. All pass.
+**Automated:** 299 frontend tests across 13 files, 4 Rust tests. All pass.
 `npm run typecheck` is clean. `npm run build` and `npm run tauri build` both
 complete end to end.
 

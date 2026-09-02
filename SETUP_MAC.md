@@ -13,14 +13,20 @@ Everything in it is free — no accounts, no subscriptions, no API keys.
 2. Paste this and press Return:
 
    ```bash
-   git clone https://github.com/aidansoto/aidansoto.github.io.git obsidian-campus
+   git clone -b claude/mission-control-upgrade https://github.com/aidansoto/aidansoto.github.io.git obsidian-campus
    ```
 
 3. The project is now in a folder called `obsidian-campus` inside your home
    folder.
 
-**Option B — as a ZIP:** on the GitHub page, click the green **Code** button →
-**Download ZIP**, then double-click the ZIP to unpack it.
+The `-b claude/mission-control-upgrade` part matters — that branch is where the
+campus and Mission Control live. Cloning without it gets you `main`, which does
+not have the app.
+
+**Option B — as a ZIP:** on the GitHub page, use the branch dropdown to pick
+**claude/mission-control-upgrade** first, then click the green **Code** button →
+**Download ZIP** and double-click the ZIP to unpack it. Picking the branch
+before downloading is the same trap as above.
 
 ## 2. Open the project folder
 

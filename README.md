@@ -54,10 +54,12 @@ thing. New to this? The step-by-step beginner guide is
 ## Setup
 
 ```bash
-git clone <this repo>
+git clone -b claude/mission-control-upgrade https://github.com/aidansoto/aidansoto.github.io.git obsidian-campus
 cd obsidian-campus
 npm install
 ```
+
+The branch matters — `main` does not have the app.
 
 ## Running
 
@@ -144,7 +146,7 @@ the campus running on a second monitor.
 
 ```bash
 npm run typecheck            # strict TypeScript, no emit
-npm test                     # 295 unit tests (vitest)
+npm test                     # 299 unit tests (vitest)
 npm run build                # typecheck + production bundle
 cd src-tauri && cargo test   # SQLite persistence tests
 ```
@@ -288,7 +290,7 @@ src/
   ui/            React interface overlay
   audio/         synthesised sound design (no audio assets)
 src-tauri/       Rust backend — SQLite persistence with revision history
-tests/           295 unit tests + the acceptance script
+tests/           299 unit tests + the acceptance script
 ```
 
 No image or audio assets ship with the app. Every texture and every sound is
