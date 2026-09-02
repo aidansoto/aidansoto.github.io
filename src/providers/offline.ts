@@ -16,7 +16,6 @@
  * Point the campus at Ollama and the identical pipeline produces real content.
  */
 
-import type { WorkKind } from '@/core/mission';
 import type {
   AiProviderAdapter,
   GenerateRequest,
