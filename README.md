@@ -4,10 +4,13 @@ A premium isometric 2D AI agent workplace for macOS.
 
 The campus **is** the interface. Ten configurable buildings surround a central
 command plaza; configurable agents in tailored suits move between them, carry
-work, collaborate, wait, review, and escalate to the owner. Nothing about what
-an agent *does* is defined here — roles, tools, instructions and workflows are
-assigned later. This phase builds the visual workplace and the state machinery
-that drives it.
+work, collaborate, wait, review, and escalate to the owner.
+
+Give the campus a goal in plain English and a Manager agent plans it, delegates
+it to the other nine, has the work reviewed, recovers from failures, and hands
+back one finished deliverable. Worker agents hold no permanent role — the
+Manager assigns one for the length of a mission and takes it back afterwards.
+See [`MISSION_CONTROL.md`](MISSION_CONTROL.md).
 
 **Design direction:** black obsidian glass, brushed silver, graphite, near-black
 structures, white architectural light, cool blue used sparingly, and gold
@@ -141,10 +144,56 @@ the campus running on a second monitor.
 
 ```bash
 npm run typecheck            # strict TypeScript, no emit
-npm test                     # 164 unit tests (vitest)
+npm test                     # 295 unit tests (vitest)
 npm run build                # typecheck + production bundle
 cd src-tauri && cargo test   # SQLite persistence tests
 ```
+
+`tests/acceptance.mjs` additionally drives the real production bundle through
+the full mission flow and reports on 42 checks. It needs a browser, so
+Playwright is deliberately not a dependency — install it only when you want to
+run it:
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+npm run build && npx vite preview --port 4173 &
+npm run acceptance
+```
+
+---
+
+## Mission Control
+
+Click **Mission Control** in the top bar (or press `M`), then **New Mission**,
+and describe what you want in plain English. Full guide:
+[`MISSION_CONTROL.md`](MISSION_CONTROL.md).
+
+**One Manager, nine assignable workers, ten agents total.** The roster is capped
+and enforced. The Manager plans the goal into ordered subtasks, hands each one
+to a worker with a temporary role, routes it to a model, has a *different* agent
+review the output, retries or reassigns what fails, and combines the pieces into
+one deliverable. Every assignment is a real task in the task system — nothing
+about the delegation is theatre.
+
+**Worker roles are never permanent.** A mission role is attached when work is
+handed out and cleared when the mission ends. An agent's own configuration is
+never written to by the system.
+
+**Smart Model Router.** Five modes; `AUTO — FREE ONLY` is the default. Free-only
+is a hard filter applied before any scoring, so a paid model cannot be selected
+even by accident — if nothing free can do the job, the router refuses and says
+so rather than falling back to something that costs money.
+
+**Two brains, both free.** *Offline Simulation* is built in, needs nothing
+installed, and stamps every artefact `[Simulated · offline campus]` so its output
+is never mistaken for analysis. *Ollama*, if you're running it, is detected
+automatically within 30 seconds and gives genuine local model output. No paid
+provider is connected, and this build cannot create a charge.
+
+**The map shows real work.** While a mission runs, agents walk to the building
+their real subtask belongs to, in the real subtask's state, labelled with the
+real model in use. Ambient activity stops entirely — invented work never
+overlaps with, or is mistaken for, a mission.
 
 ---
 
@@ -152,6 +201,8 @@ cd src-tauri && cargo test   # SQLite persistence tests
 
 | Action | Input |
 | --- | --- |
+| Command Dashboard | `M`, or the **Mission Control** button |
+| Back to the campus | `Esc` from any full-screen surface |
 | Pan | Drag anywhere on the campus, or `W A S D` / arrow keys |
 | Zoom | Scroll wheel or trackpad pinch (anchored under the cursor) |
 | Zoom in / out | `+` / `−`, or the on-screen cluster |
@@ -224,16 +275,20 @@ repair to the activity log.
 
 ```
 src/
-  core/         iso projection, event bus, navigation + A*, domain types
-  config/       campus seed data, schema normalisation, themes
-  sim/          agent state machine, task lifecycle, building status
-  render/       PixiJS scene: camera, geometry, buildings, agents, layers
-  state/        zustand store, engine wiring
-  persistence/  storage adapter (SQLite via Tauri, localStorage in browser)
-  ui/           React interface overlay
-  audio/        synthesised sound design (no audio assets)
-src-tauri/      Rust backend — SQLite persistence with revision history
-tests/          164 unit tests
+  core/          iso projection, event bus, navigation + A*, domain types
+  config/        campus seed data, schema normalisation, migrations, themes
+  sim/           agent state machine, task lifecycle, building status
+  render/        PixiJS scene: camera, geometry, buildings, agents, layers
+  providers/     AI provider adapters — offline simulator, Ollama, registry
+  orchestration/ Manager engine, planner, model router, memory, chat
+  knowledge/     Knowledge Vault: scoped storage and budgeted retrieval
+  state/         zustand store, engine wiring
+  persistence/   storage adapter (SQLite via Tauri, localStorage in browser)
+  notify/        macOS notifications
+  ui/            React interface overlay
+  audio/         synthesised sound design (no audio assets)
+src-tauri/       Rust backend — SQLite persistence with revision history
+tests/           295 unit tests + the acceptance script
 ```
 
 No image or audio assets ship with the app. Every texture and every sound is

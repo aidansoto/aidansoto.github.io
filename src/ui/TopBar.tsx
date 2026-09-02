@@ -20,6 +20,7 @@ export function TopBar(): JSX.Element {
   const openPanel = useCampus((s) => s.openPanel);
   const setPanel = useCampus((s) => s.setPanel);
   const setOwnerSuiteOpen = useCampus((s) => s.setOwnerSuiteOpen);
+  const setScreen = useCampus((s) => s.setScreen);
 
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => {
@@ -91,6 +92,12 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="btn-row">
+        {/* The dashboard is where missions are started and watched. It had only
+            a keyboard shortcut, which meant the owner had to be told it exists
+            before they could find it. */}
+        <Button accent="gold" onClick={() => setScreen('dashboard')} title="Command Dashboard (M)">
+          Mission Control
+        </Button>
         <Button active={openPanel === 'roster'} onClick={() => setPanel('roster')}>
           Roster
         </Button>
@@ -100,9 +107,8 @@ export function TopBar(): JSX.Element {
         <Button active={openPanel === 'settings'} onClick={() => setPanel('settings')}>
           Settings
         </Button>
-        <Button accent="gold" onClick={() => setOwnerSuiteOpen(true)}>
-          Owner Suite
-        </Button>
+        {/* One accent in the bar, on the thing the owner reaches for most. */}
+        <Button onClick={() => setOwnerSuiteOpen(true)}>Owner Suite</Button>
         {mode === 'running' ? (
           <Button onClick={() => engine.setMode('paused', 'Owner paused the campus')}>Pause</Button>
         ) : (

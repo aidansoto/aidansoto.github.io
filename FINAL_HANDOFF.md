@@ -1,7 +1,11 @@
 # Final Handoff — Obsidian Campus
 
-Everything you need to know to take this project, run it, and build it into a
-free local Mac application.
+Everything you need to take this project, run it, and build it into a free
+local Mac application.
+
+New in this build: **Mission Control** — a Manager agent that genuinely plans,
+delegates, reviews and delivers. See [`MISSION_CONTROL.md`](MISSION_CONTROL.md)
+for how to use it. This document covers getting it running.
 
 ## The project
 
@@ -9,12 +13,24 @@ free local Mac application.
 | --- | --- |
 | **Project name** | Obsidian Campus (placeholder — rename any time in `src-tauri/tauri.conf.json` → `productName` and Settings → Campus Name) |
 | **Project folder** | `aidansoto.github.io` (clone as `obsidian-campus` if you prefer: `git clone <repo> obsidian-campus`) |
-| **GitHub repository** | `https://github.com/aidansoto/aidansoto.github.io`, branch `claude/ai-campus-visual-design-3yuyjw` |
-| **ZIP** | Not created — GitHub access was available, so the repository is the source of truth. (GitHub's **Code → Download ZIP** produces one on demand.) |
+| **GitHub repository** | `https://github.com/aidansoto/aidansoto.github.io` — **private**, branch `claude/mission-control-upgrade` |
 | **Version** | 0.1.0 |
 | **Operating mode** | Offline Simulation (default; free; no API keys; no network use) |
 
-## Launch and build
+## Getting it running on your Mac
+
+```bash
+git clone https://github.com/aidansoto/aidansoto.github.io.git obsidian-campus
+cd obsidian-campus
+npm install
+npm run tauri build
+```
+
+Then open `src-tauri/target/release/bundle/dmg/`, double-click the `.dmg`, drag
+**Obsidian Campus** into Applications, and launch it from there. Pin it to the
+Dock and it behaves like any other Mac app.
+
+Or double-click the `.command` files instead of using Terminal:
 
 | Action | Double-click | Terminal |
 | --- | --- | --- |
@@ -23,95 +39,137 @@ free local Mac application.
 | Open project in Finder | `Open Project Folder.command` | `open .` |
 | Erase saved campus data | `Reset Local Data.command` | — |
 
-**Output locations after `npm run tauri build` (relative to the project root):**
+**Output locations after `npm run tauri build`** (relative to the project root):
 
 - `.app` → `src-tauri/target/release/bundle/macos/Obsidian Campus.app`
 - `.dmg` → `src-tauri/target/release/bundle/dmg/Obsidian Campus_0.1.0_aarch64.dmg`
   (`_x64` on Intel Macs)
 
-First launch of the built app: **right-click → Open** (it is unsigned; this is
-normal for private local use and needs no paid developer account). Signing and
-notarisation only matter if you later distribute the app to other people.
+First launch of the built app: **right-click → Open**. It is unsigned, which is
+normal for private local use and needs no paid developer account. Signing and
+notarisation only matter if you later hand the app to other people.
 
-## Required free software
+### Required free software
 
 - Node.js 20+ (`brew install node`)
 - Rust via rustup (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
 - Xcode Command Line Tools (`xcode-select --install`)
 
-**Optional software:** Homebrew (easiest way to install Node), Ollama (only
-for a future local-model phase — not used by the current version).
+**Optional:** Homebrew (easiest way to install Node), [Ollama](https://ollama.com)
+(free local models — the campus picks it up automatically if it's running).
+
+## First five minutes
+
+1. Launch the app. The campus loads; ten agents, Agent 01 is the Manager.
+2. Click **Mission Control** in the top bar.
+3. **New Mission** → describe something real → **Start Mission**.
+4. Watch the dashboard, or click **Back to Campus** and watch the agents work.
+5. **View Results** when it finishes.
 
 ## What state the app restarts into
 
-The app relaunches into the **running offline simulation** — safe by design,
-because simulated agents take no external actions, call no services, and cost
-nothing. Pause and Emergency Stop are always one click away in the top bar,
-and Emergency Stop fully halts agents and task movement until you clear it.
+The app relaunches into the **running offline simulation**. That is safe by
+design: simulated agents take no external actions, call no services, and cost
+nothing. Missions do not resume automatically — finished ones stay finished and
+their results stay readable. Pause and Emergency Stop are always one click away.
 
 ## Data, backups, restore
 
 - All data lives in `~/Library/Application Support/com.obsidiancampus.app/campus.sqlite`.
-- The app automatically keeps the **last 20 revisions** of the campus in that
-  database (`revisions` table) — several rolling backups, never just one.
-- **Export / Import**: Settings → Data → Export Data (portable JSON) and
-  Import Data (asks for confirmation before overwriting).
-- **Restore a revision**: the supported path is export/import; direct
-  restoration is `sqlite3 campus.sqlite "SELECT value FROM revisions ORDER BY id DESC LIMIT 5"`,
+- The app keeps the **last 20 revisions** in that database (`revisions` table)
+  — several rolling backups, never just one.
+- **Export / Import**: Settings → Data → Export Data (portable JSON) and Import
+  Data (asks for confirmation before overwriting).
+- **Restore a revision**:
+  `sqlite3 campus.sqlite "SELECT value FROM revisions ORDER BY id DESC LIMIT 5"`,
   then import the chosen JSON via Settings → Data.
 
 ## Feature status
 
-**Fully working (verified):**
-- Isometric campus with ten configurable buildings, central plaza, monument
-- Agents: movement, pathfinding, 14 visual states, labels, inspection
-- Task lifecycle with visual packets; simulated approvals; collaboration
-- Camera: pan, cursor-anchored zoom, focus building/agent, return to plaza
-- Building status lighting; day/night themes; optional weather
-- Pause, Resume, Emergency Stop (and recovery)
-- Owner Command Suite (approvals, override, monitors)
-- SQLite persistence with automatic revisions; settings survive restart
-- Export/Import, diagnostics panel with copy, graceful DB-failure fallback
-- Renamable agents/buildings; no fixed roles; all names are placeholders
+**Working and verified:**
 
-**Simulated (by design, this phase):**
-- All agent intelligence — the deterministic local simulation drives every
-  agent. No AI service exists in the code path.
+*Campus* — isometric map with ten configurable buildings, plaza and monument;
+agent movement and pathfinding; 14 visual states; persistent labels; camera pan,
+cursor-anchored zoom and focus; building status lighting; day/night; weather;
+Owner Command Suite; pause, resume, emergency stop.
 
-**Not yet connected (future phases):**
-- Real AI providers (Local Model / Ollama / Claude / Custom) — the Settings →
-  AI Provider section stores the preference only
-- Building interiors (cutaway view), drag-and-drop layout editor
-- In-app revision browser (backups exist; UI for browsing them does not)
+*Mission Control* — Manager agent (changeable); ten-agent cap; dynamic
+temporary roles cleared at mission end; real subtasks with dependencies;
+cross-agent review with bounded revision; bounded retry and recovery; result
+aggregation; Command Dashboard; Smart Model Router with the free-only guarantee;
+performance learning; Knowledge Vault with three scopes; decaying Manager
+memory; Workflow Builder; Manager conversation; macOS notifications.
 
-**Failed tests:** none — 164/164 frontend tests and 4/4 Rust tests pass.
+*Platform* — SQLite persistence with automatic revisions; schema migration from
+older campus files; export/import; diagnostics; graceful database-failure
+fallback; the campus map mirrors real mission state.
 
-## Was it tested on macOS?
+**Simulated by default (and labelled as such):** agent intelligence. The offline
+provider produces structured deliverables so everything is exercisable with
+nothing installed, and stamps every artefact `[Simulated · offline campus]`.
+Install Ollama for genuine local model output — still free, still offline.
 
-**No — this preparation environment is Linux.** Everything that can be
-verified off-macOS was verified here:
+**Not connected:** paid AI providers. The architecture has a slot for them; this
+build cannot create a charge.
 
-- `npm install`, `npm run typecheck`, `npm test`, `npm run build` — all pass
-- `cargo test` / release compile of the Rust backend — pass
-- `npm run tauri build` — completes end-to-end (Linux bundles: .deb/.rpm/.AppImage)
-- The **packaged desktop binary** was launched under a virtual display: campus
-  renders, SQLite persistence confirmed across a restart, tasks/approvals flow
+**Not built yet:** building interiors as a cutaway view; drag-and-drop layout
+editor (the data model and collision detection exist, the UI does not); in-app
+revision browser.
 
-The final `.app` and `.dmg` **must be built on your Mac** (`npm run tauri
-build` or `Build Mac App.command`) — Tauri cannot produce macOS bundles from
-Linux. So: **final build not yet verified on macOS**; the pipeline it runs is.
+## What was tested, and how
+
+**Automated:** 295 frontend tests across 12 files, 4 Rust tests. All pass.
+`npm run typecheck` is clean. `npm run build` and `npm run tauri build` both
+complete end to end.
+
+**The 23-step acceptance run** in `tests/acceptance.mjs` drives the real
+production bundle through the whole flow — clicking real buttons, typing into
+real fields, asserting on real persisted state — and reports 42/42 checks with
+zero console errors. To run it yourself:
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+npm run build
+npx vite preview --port 4173 &
+npm run acceptance
+```
+
+**The packaged desktop binary** was launched under a virtual display and driven
+by mouse through the full loop: open Mission Control → New Mission → type a goal
+→ Start Mission → mission completes → quit → relaunch → the completed mission
+and its deliverable are still there, loaded from SQLite. The database was
+inspected directly to confirm the mission, subtask, assigned agent, model,
+645-character result, knowledge entry, model statistics and memory fact all
+persisted, and that temporary role assignments were correctly cleared.
+
+**Not tested on macOS.** This preparation environment is Linux, and Tauri cannot
+produce macOS bundles from Linux. The build *pipeline* is verified — it produces
+`.deb`/`.rpm`/`.AppImage` here and will produce `.app`/`.dmg` on your Mac — but
+the macOS bundles themselves have not been built or opened. That is the one step
+that has to happen on your machine.
 
 ## Known limitations
 
-See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for the full list. Headlines:
-frame rate is unmeasured on real Mac hardware (this environment has no GPU);
-building interiors are implied rather than modelled; the layout editor UI is
-not built yet (the data model and collision detection are).
+See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md). Headlines: frame rate is
+unmeasured on real Mac hardware (this environment has no GPU); building
+interiors are implied rather than modelled; offline-provider output is
+structured placeholder prose, not analysis, which is why it is labelled.
 
 ## Cost verification
 
-The default configuration was checked end-to-end for cost: no network calls
-to AI services exist in the codebase, no API keys are requested or stored, no
-billing can be enabled, offline simulation is the schema default, and every
-dependency (Tauri, React, TypeScript, PixiJS, SQLite, Vite, Zustand, Vitest)
-is free and open source. Running this app costs nothing beyond electricity.
+Checked end to end. No network calls to AI services exist in the codebase. No
+API key is requested, stored or read. Billing cannot be enabled. Offline
+simulation is the schema default and FREE ONLY is the default routing mode,
+enforced as a filter rather than a preference. Every dependency — Tauri, React,
+TypeScript, PixiJS, SQLite, Vite, Zustand, Vitest — is free and open source.
+
+Running this app costs nothing beyond electricity.
+
+## If you add a paid provider later
+
+Nothing here needs changing to keep it free. If you do connect one:
+
+- Store the key in the **macOS Keychain**, never in a file in this repository.
+- Keep FREE ONLY as the default routing mode; switch per mission when you
+  actually want to spend.
+- The repository is private. Keep it that way unless you have a reason not to.

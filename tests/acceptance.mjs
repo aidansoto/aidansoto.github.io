@@ -77,7 +77,9 @@ check('No more than 10 agents', d.agents.length <= 10, `${d.agents.length} agent
 check('One agent is designated Manager', Boolean(d.managerAgentId), d.managerAgentId);
 
 /* 4: dashboard ------------------------------------------------------ */
-await page.keyboard.press('m');
+// Via the visible control, not the keyboard shortcut — the owner has to be
+// able to find it without being told it exists.
+await page.click('.topbar .btn:has-text("Mission Control")');
 await page.waitForTimeout(800);
 check('Command Dashboard opens', await page.locator('.screen-title', { hasText: 'Command Dashboard' }).isVisible());
 
