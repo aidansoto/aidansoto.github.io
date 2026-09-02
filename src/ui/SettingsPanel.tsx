@@ -18,7 +18,7 @@ import type { AiProvider, CampusDocument, TimeOfDay, WeatherKind } from '@/core/
 const PROVIDER_LABEL: Record<AiProvider, string> = {
   offline: 'Offline Simulation (free, default)',
   local: 'Local Model — not yet connected',
-  ollama: 'Ollama — not yet connected',
+  ollama: 'Ollama (free, local)',
   custom: 'Custom Provider — not yet connected',
 };
 
@@ -27,6 +27,7 @@ export function SettingsPanel(): JSX.Element | null {
   const patch = useCampus((s) => s.patchSettings);
   const setDoc = useCampus((s) => s.setDoc);
   const backend = useCampus((s) => s.storageBackend);
+  const providerStatuses = useCampus((s) => s.providerStatuses);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [pendingImport, setPendingImport] = useState<{
     doc: CampusDocument;
@@ -85,23 +86,63 @@ export function SettingsPanel(): JSX.Element | null {
         }))}
         onChange={(v) => patch({ aiProvider: v })}
       />
-      {s.aiProvider === 'offline' ? (
+      {s.aiProvider === 'offline' && (
         <p className="empty" style={{ textAlign: 'left', padding: '0 0 10px' }}>
-          The campus is operating locally. All agents are simulated, no paid AI provider is
-          connected, and no API charges are being created. Nothing to configure.
+          The built-in simulator. Free, always available, needs nothing installed. Every artefact
+          it writes is marked <em>[Simulated · offline campus]</em> so its output is never mistaken
+          for real analysis.
         </p>
-      ) : (
+      )}
+      {s.aiProvider === 'ollama' && (
+        <p className="empty" style={{ textAlign: 'left', padding: '0 0 10px' }}>
+          Real local models, still free and still offline. Install Ollama from ollama.com, run
+          <code> ollama serve</code>, and pull a model. The campus re-checks every 30 seconds, so
+          it is picked up without a restart.
+        </p>
+      )}
+      {(s.aiProvider === 'local' || s.aiProvider === 'custom') && (
         <p
           className="empty"
           style={{ textAlign: 'left', padding: '8px 10px', border: '1px solid rgba(216,146,46,0.4)', borderRadius: 3, color: 'var(--amber)' }}
         >
-          Provider connections ship in a later phase — this stores your preference only. The
-          campus continues running the free offline simulation. Nothing has been activated, no
-          API key has been requested, and no billing exists. When hosted providers (e.g. Claude)
-          are connected later, they can create usage charges and will warn you first; keys will
-          be stored in the macOS Keychain, never in files.
+          Not connected — this stores your preference only, and the campus keeps using whichever
+          free provider is available. Nothing has been activated, no API key has been requested,
+          and no billing exists. When a hosted provider is connected later it can create usage
+          charges and will warn you first; keys go in the macOS Keychain, never in files.
         </p>
       )}
+
+      <TextField
+        label="Ollama address"
+        value={s.ollamaUrl}
+        placeholder="http://127.0.0.1:11434"
+        onChange={(v) => patch({ ollamaUrl: v.trim() })}
+      />
+
+      {/* What is actually available right now, rather than what was preferred. */}
+      <div className="provider-status">
+        {providerStatuses.length === 0 ? (
+          <p className="empty" style={{ textAlign: 'left', padding: '0 0 6px' }}>Checking…</p>
+        ) : (
+          providerStatuses.map((p) => (
+            <div key={p.id} className="provider-row">
+              <span
+                className="status-dot"
+                style={{ color: p.health === 'available' ? 'var(--green)' : 'var(--text-faint)' }}
+              />
+              <span className="provider-name">{p.label}</span>
+              {p.free && <span className="tag-free">FREE</span>}
+              <span className="provider-detail">
+                {p.health === 'available' ? `${p.models.length} model(s) ready` : p.detail}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+      <p className="empty" style={{ textAlign: 'left', padding: '0 0 10px' }}>
+        The Smart Router chooses among whatever is available above, under the routing rule set per
+        mission. On <strong>FREE ONLY</strong> — the default — a paid model is never a candidate.
+      </p>
 
       <Divider label="Visibility" />
       <Toggle label="Agent name labels" checked={s.showAgentLabels} onChange={(v) => patch({ showAgentLabels: v })} />

@@ -238,10 +238,16 @@ allowed to assume that what was true once is still true.
 ## Workflows
 
 **Workflows** builds reusable sequences on a visual canvas: click a node type to
-add it, click two nodes to connect them. Fifteen node kinds cover research,
-analysis, writing, building, review, testing, approval gates, branches and
-loops. Save a workflow and run it as a mission whenever you want the same shape
-of work repeated.
+add it, click two nodes to connect them. Fifteen node kinds: Start, Task, Agent,
+Manager, AI, Tool, Condition, Wait, Schedule, Approval, Review, Revision,
+Notification, Save Output, Complete. Workflows are saved with the campus and
+survive a restart.
+
+**They are templates, not yet an execution path.** Missions currently run the
+Manager's own plan; a saved workflow does not drive one. Building the template
+and wiring it into mission execution are two jobs, and only the first is done.
+The canvas is a real editor with real persisted data — it just isn't hooked up
+to the engine yet. The panel says so in the app too.
 
 ---
 

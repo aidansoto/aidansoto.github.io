@@ -1181,6 +1181,39 @@ input[type='range']::-webkit-slider-thumb {
   margin-left: 6px;
 }
 
+/* Live provider readout in Settings — what is actually available, next to the
+   preference the owner set. */
+.provider-status {
+  margin: 2px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  background: rgba(8, 11, 17, 0.5);
+}
+
+.provider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 10px;
+  min-width: 0;
+}
+
+.provider-name {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.provider-detail {
+  color: var(--text-faint);
+  margin-left: auto;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-promote {
   opacity: 0;
   transition: opacity 0.12s ease;
